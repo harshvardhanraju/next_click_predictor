@@ -5,8 +5,9 @@ This provides a REST API interface for the prediction system,
 allowing easy integration with web applications.
 """
 
-from fastapi import FastAPI, UploadFile, File, HTTPException
+from fastapi import FastAPI, UploadFile, File, HTTPException, Form
 from fastapi.responses import JSONResponse
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Dict, List, Any, Optional
 import tempfile
@@ -26,6 +27,15 @@ app = FastAPI(
     title="Next-Click Prediction API",
     description="Predict what users will click next based on screenshots, user attributes, and tasks",
     version="1.0.0"
+)
+
+# Add CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # In production, replace with specific domains
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 # Initialize predictor
@@ -90,17 +100,19 @@ async def health_check():
         "requests_processed": request_count
     }
 
-@app.post("/predict", response_model=PredictionResponse)
+@app.post("/predict")
 async def predict_next_click(
-    request: PredictionRequest,
-    screenshot: UploadFile = File(...)
+    file: UploadFile = File(...),
+    user_attributes: str = Form(...),
+    task_description: str = Form(...)
 ):
     """
     Predict what the user will click next
     
     Args:
-        request: Prediction request with user attributes and task
-        screenshot: PNG screenshot file
+        file: Screenshot image file
+        user_attributes: JSON string with user attributes
+        task_description: Description of the task
         
     Returns:
         Prediction results with explanations
@@ -109,15 +121,24 @@ async def predict_next_click(
     request_count += 1
     
     # Validate file type
-    if not screenshot.filename.lower().endswith(('.png', '.jpg', '.jpeg')):
+    if not file.filename.lower().endswith(('.png', '.jpg', '.jpeg')):
         raise HTTPException(
             status_code=400,
             detail="File must be a PNG, JPG, or JPEG image"
         )
     
+    # Parse user attributes
+    try:
+        user_attrs = json.loads(user_attributes)
+    except json.JSONDecodeError:
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid JSON format for user_attributes"
+        )
+    
     # Save uploaded file temporarily
     with tempfile.NamedTemporaryFile(suffix='.png', delete=False) as tmp:
-        contents = await screenshot.read()
+        contents = await file.read()
         tmp.write(contents)
         tmp_path = tmp.name
     
@@ -125,22 +146,23 @@ async def predict_next_click(
         # Run prediction
         result = predictor.predict_next_click(
             tmp_path,
-            request.user_attributes.dict(),
-            request.task_description,
-            request.return_detailed
+            user_attrs,
+            task_description,
+            True
         )
         
-        # Convert result to response format
-        response = PredictionResponse(
-            top_prediction=result.top_prediction,
-            all_predictions=result.all_predictions,
-            explanation=result.explanation,
-            confidence_score=result.confidence_score,
-            processing_time=result.processing_time,
-            ui_elements_count=len(result.ui_elements)
-        )
+        # Convert result to response format  
+        response = {
+            "top_prediction": result.top_prediction,
+            "all_predictions": result.all_predictions,
+            "explanation": result.explanation,
+            "confidence_score": result.confidence_score,
+            "processing_time": result.processing_time,
+            "ui_elements": result.ui_elements,
+            "metadata": result.metadata
+        }
         
-        logger.info(f"Prediction completed: {result.top_prediction.get('element_text', 'N/A')}")
+        logger.info(f"Prediction completed: confidence {result.confidence_score:.2f}")
         
         return response
         
