@@ -21,8 +21,10 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir -r requirements.txt
 
-# Copy application code
+# Copy application code and startup script
 COPY src/ ./src/
+COPY start.sh ./start.sh
+RUN chmod +x ./start.sh
 
 # Create necessary directories
 RUN mkdir -p data logs
@@ -43,5 +45,5 @@ EXPOSE 8000
 # Health check (Railway will handle this via railway.json)
 # HEALTHCHECK removed for Railway compatibility
 
-# Run application (Railway will override this with railway.json startCommand)
-CMD ["python", "-m", "uvicorn", "src.web_service:app", "--host", "0.0.0.0", "--port", "8000"]
+# Run application via startup script
+CMD ["./start.sh"]
