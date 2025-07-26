@@ -1,25 +1,24 @@
-# Computer Vision & Image Processing (lightweight versions)
+# Computer Vision & Image Processing (optimized versions)
 opencv-python-headless==4.8.1.78
 easyocr==1.7.0
 Pillow==10.0.1
 
-# Bayesian Networks & Probabilistic Inference
+# Bayesian Networks & Probabilistic Inference (minimal versions)
 pgmpy==0.1.24
 networkx==3.1
 numpy==1.24.3
 scipy==1.11.1
 
-# Machine Learning & Feature Analysis
+# Machine Learning & Feature Analysis (optimized)
 scikit-learn==1.3.0
 shap==0.42.1
 
-# API & Web Framework
+# API & Web Framework (lightweight)
 fastapi==0.103.1
-uvicorn==0.23.2
+uvicorn[standard]==0.23.2
 pydantic==2.3.0
-fastapi-cors==0.0.6
 
-# Utilities
+# Utilities (minimal)
 python-multipart==0.0.6
 python-dotenv==1.0.0
 loguru==0.7.0

@@ -1,68 +1,85 @@
-# Multi-stage build for smaller image size
+# Multi-stage build for optimized image size (using slim instead of alpine for better ML support)
 FROM python:3.11-slim as builder
 
-# Install system dependencies for building
-RUN apt-get update && apt-get install -y \
+# Install only essential build dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
     g++ \
-    libgl1-mesa-dev \
-    libglib2.0-0 \
-    libsm6 \
-    libxext6 \
-    libxrender-dev \
-    libgomp1 \
-    libfontconfig1 \
     && rm -rf /var/lib/apt/lists/*
 
 # Create virtual environment
 RUN python -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
-# Copy requirements and install Python packages
-COPY requirements.txt .
-RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir -r requirements.txt
+# Upgrade pip and install wheel
+RUN pip install --no-cache-dir --upgrade pip wheel
 
-# Production stage
+# Copy requirements
+COPY requirements.txt .
+
+# Install packages using pre-built wheels (much faster than compiling)
+RUN pip install --no-cache-dir \
+    --prefer-binary \
+    --only-binary=:all: \
+    -r requirements.txt && \
+    # Aggressive cleanup to reduce size
+    find /opt/venv -name "*.pyc" -exec rm -f {} + && \
+    find /opt/venv -name "__pycache__" -exec rm -rf {} + && \
+    find /opt/venv -name "*.so" -exec strip {} + || true && \
+    find /opt/venv -path "*/tests/*" -exec rm -rf {} + && \
+    find /opt/venv -path "*/test/*" -exec rm -rf {} + && \
+    find /opt/venv -name "*.pyx" -delete && \
+    find /opt/venv -name "*.pxd" -delete && \
+    find /opt/venv -path "*/docs/*" -exec rm -rf {} + && \
+    find /opt/venv -path "*/examples/*" -exec rm -rf {} + && \
+    find /opt/venv -name "*.md" -delete && \
+    find /opt/venv -name "*.txt" -delete && \
+    find /opt/venv -path "*/include/*" -exec rm -rf {} + && \
+    find /opt/venv -name "*.h" -delete && \
+    find /opt/venv -name "*.c" -delete
+
+# Production stage - minimal runtime
 FROM python:3.11-slim
 
-# Install only runtime dependencies
-RUN apt-get update && apt-get install -y \
+# Install only runtime dependencies for OpenCV and ML libraries
+RUN apt-get update && apt-get install -y --no-install-recommends \
     libgl1-mesa-glx \
     libglib2.0-0 \
-    libsm6 \
-    libxext6 \
-    libxrender-dev \
     libgomp1 \
-    libfontconfig1 \
     && rm -rf /var/lib/apt/lists/* \
     && apt-get clean
 
-# Copy virtual environment from builder stage
+# Copy the cleaned virtual environment
 COPY --from=builder /opt/venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
 # Set working directory
 WORKDIR /app
 
-# Copy only necessary application files
+# Copy only essential application files
 COPY src/ ./src/
-COPY *.py ./
 
 # Create necessary directories
 RUN mkdir -p data logs
 
-# Set environment variables
-ENV PYTHONPATH=/app
-ENV PYTHONUNBUFFERED=1
-ENV PYTHONDONTWRITEBYTECODE=1
+# Set optimized environment variables
+ENV PYTHONPATH=/app \
+    PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONOPTIMIZE=2 \
+    PIP_NO_CACHE_DIR=1
+
+# Security: use non-root user
+RUN useradd --create-home --shell /bin/bash --uid 1001 appuser && \
+    chown -R appuser:appuser /app
+USER appuser
 
 # Expose port
 EXPOSE 8000
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
-    CMD python -c "import requests; requests.get('http://localhost:8000/health')"
+# Efficient health check
+HEALTHCHECK --interval=60s --timeout=10s --start-period=30s --retries=2 \
+    CMD python -c "import socket; s=socket.socket(); s.settimeout(5); s.connect(('localhost', 8000)); s.close()" || exit 1
 
-# Command to run the application
-CMD uvicorn src.web_service:app --host 0.0.0.0 --port ${PORT:-8000}
+# Run application
+CMD ["python", "-m", "uvicorn", "src.web_service:app", "--host", "0.0.0.0", "--port", "8000"]
