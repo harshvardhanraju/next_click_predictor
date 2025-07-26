@@ -40,9 +40,8 @@ USER appuser
 # Expose port
 EXPOSE 8000
 
-# Health check
-HEALTHCHECK --interval=60s --timeout=10s --start-period=30s --retries=2 \
-    CMD python -c "import requests; requests.get('http://localhost:8000/health')" || exit 1
+# Health check (Railway will handle this via railway.json)
+# HEALTHCHECK removed for Railway compatibility
 
 # Run application
-CMD ["python", "-m", "uvicorn", "src.web_service:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["sh", "-c", "python -m uvicorn src.web_service:app --host 0.0.0.0 --port ${PORT:-8000}"]
