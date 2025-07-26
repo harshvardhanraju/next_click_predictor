@@ -43,5 +43,5 @@ EXPOSE 8000
 # Health check (Railway will handle this via railway.json)
 # HEALTHCHECK removed for Railway compatibility
 
-# Run application
-CMD ["sh", "-c", "python -m uvicorn src.web_service:app --host 0.0.0.0 --port ${PORT:-8000}"]
+# Run application (Railway will override this with railway.json startCommand)
+CMD ["python", "-m", "uvicorn", "src.web_service:app", "--host", "0.0.0.0", "--port", "8000"]
