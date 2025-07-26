@@ -17,15 +17,14 @@ RUN pip install --no-cache-dir --upgrade pip wheel
 # Copy requirements
 COPY requirements.txt .
 
-# Install packages using pre-built wheels (much faster than compiling)
+# Install packages with fallback to source builds
 RUN pip install --no-cache-dir \
     --prefer-binary \
-    --only-binary=:all: \
     -r requirements.txt && \
     # Aggressive cleanup to reduce size
     find /opt/venv -name "*.pyc" -exec rm -f {} + && \
     find /opt/venv -name "__pycache__" -exec rm -rf {} + && \
-    find /opt/venv -name "*.so" -exec strip {} + || true && \
+    find /opt/venv -name "*.so" -exec strip {} + 2>/dev/null || true && \
     find /opt/venv -path "*/tests/*" -exec rm -rf {} + && \
     find /opt/venv -path "*/test/*" -exec rm -rf {} + && \
     find /opt/venv -name "*.pyx" -delete && \
