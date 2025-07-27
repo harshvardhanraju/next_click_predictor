@@ -34,4 +34,5 @@ python -c "import sys; print('Python path:', sys.path)"
 
 # Start the application with more verbose output
 echo "Starting uvicorn on port $PORT with host 0.0.0.0"
-exec python -m uvicorn src.web_service:app --host 0.0.0.0 --port $PORT --log-level info
+# Use minimal version for testing deployment
+exec python -m uvicorn src.web_service_minimal:app --host 0.0.0.0 --port $PORT --log-level info

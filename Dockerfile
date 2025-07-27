@@ -15,7 +15,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 WORKDIR /app
 
 # Copy requirements first for better caching
-COPY requirements.txt .
+COPY requirements.minimal.txt ./requirements.txt
 
 # Install Python packages
 RUN pip install --no-cache-dir --upgrade pip && \
