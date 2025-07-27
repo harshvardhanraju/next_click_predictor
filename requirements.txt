@@ -1,2 +1,1 @@
-# Basic requirements for Railway auto-detection
-# This file signals Railway that this is a Python project
+# Railway auto-detection requirements
