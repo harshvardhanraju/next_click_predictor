@@ -1,0 +1,20 @@
+# Ultra-minimal Dockerfile for Railway
+FROM python:3.11-slim
+
+# Set working directory
+WORKDIR /app
+
+# Copy and install requirements
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy application
+COPY src/ ./src/
+COPY start.sh ./start.sh
+RUN chmod +x ./start.sh
+
+# Set environment
+ENV PYTHONPATH=/app
+
+# Run
+CMD ["./start.sh"]
