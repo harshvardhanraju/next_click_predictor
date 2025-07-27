@@ -65,28 +65,70 @@ async def predict(
         user_attrs = json.loads(user_attributes)
         logger.info(f"Parsed user attributes: {user_attrs}")
         
-        # Mock prediction result for now
+        # Mock prediction result matching frontend types
+        mock_element = {
+            "x": 300,
+            "y": 200,
+            "width": 120,
+            "height": 40,
+            "element_type": "button",
+            "text": "Submit",
+            "confidence": 0.85,
+            "prominence": 0.9
+        }
+        
+        mock_prediction = {
+            "element_id": 1,
+            "click_probability": 0.85,
+            "element": mock_element,
+            "reasoning": [
+                "Button positioned prominently in visual hierarchy",
+                "User's experience level suggests familiarity with interface",
+                "Task description indicates specific action needed"
+            ]
+        }
+        
         result = {
-            "predictions": [
-                {
-                    "x": 300,
-                    "y": 200,
-                    "confidence": 0.85,
-                    "element_type": "button",
-                    "description": "Primary action button"
-                }
-            ],
+            "top_prediction": mock_prediction,
+            "all_predictions": [mock_prediction],
             "explanation": {
+                "main_explanation": "Based on visual hierarchy and user attributes, the submit button is most likely to be clicked next.",
                 "key_factors": [
-                    "Button positioned in visual hierarchy",
-                    "User's experience level suggests familiarity",
-                    "Task description indicates specific goal"
+                    {
+                        "factor": "Visual prominence",
+                        "weight": 0.4,
+                        "description": "Button is prominently placed and visually distinct"
+                    },
+                    {
+                        "factor": "User experience level",
+                        "weight": 0.3,
+                        "description": f"User's {user_attrs.get('tech_savviness', 'intermediate')} tech level"
+                    },
+                    {
+                        "factor": "Task alignment",
+                        "weight": 0.3,
+                        "description": "Task description suggests need for form submission"
+                    }
                 ],
-                "confidence_score": 0.85
+                "reasoning_chain": [
+                    "Analyzed UI elements for clickable components",
+                    "Assessed visual hierarchy and prominence",
+                    "Considered user attributes and experience level",
+                    "Evaluated task description for intent",
+                    "Calculated click probabilities using Bayesian network"
+                ],
+                "confidence_analysis": "High confidence due to clear visual hierarchy and task alignment"
             },
-            "user_attributes": user_attrs,
-            "task_description": task_description,
-            "filename": file.filename
+            "ui_elements": [mock_element],
+            "processing_time": 1.2,
+            "confidence_score": 0.85,
+            "metadata": {
+                "filename": file.filename,
+                "user_attributes": user_attrs,
+                "task_description": task_description,
+                "model_version": "mock-1.0",
+                "timestamp": "2025-01-27T22:38:00Z"
+            }
         }
         
         logger.info(f"Returning prediction result: {result}")
