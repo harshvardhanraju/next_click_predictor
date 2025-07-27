@@ -20,9 +20,17 @@ if [ ! -d "src" ]; then
     exit 1
 fi
 
+# Add src directory to Python path
+export PYTHONPATH="/app/src:$PYTHONPATH"
+echo "PYTHONPATH set to: $PYTHONPATH"
+
 # List Python packages
 echo "Installed packages:"
 pip list | head -10
+
+# Check Python path resolution
+echo "Testing Python imports:"
+python -c "import sys; print('Python path:', sys.path)"
 
 # Start the application with more verbose output
 echo "Starting uvicorn on port $PORT with host 0.0.0.0"
