@@ -35,16 +35,25 @@ export default function Home() {
       formData.append('task_description', task);
 
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+      console.log('🔗 API URL being used:', apiUrl);
+      console.log('📤 Making request to:', `${apiUrl}/predict`);
+      
       const response = await fetch(`${apiUrl}/predict`, {
         method: 'POST',
         body: formData,
       });
 
+      console.log('📊 Response status:', response.status);
+      console.log('📊 Response headers:', Object.fromEntries(response.headers.entries()));
+      
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        const errorText = await response.text();
+        console.error('❌ Response error:', errorText);
+        throw new Error(`HTTP error! status: ${response.status} - ${errorText}`);
       }
 
       const result = await response.json();
+      console.log('✅ API Response received:', result);
       setPredictionResult(result);
       setStep('results');
     } catch (err) {
