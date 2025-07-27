@@ -92,13 +92,55 @@ async def root():
 
 @app.get("/health")
 async def health_check():
-    """Health check endpoint"""
-    return {
-        "status": "healthy",
-        "timestamp": datetime.now().isoformat(),
-        "uptime": str(datetime.now() - start_time),
-        "requests_processed": request_count
-    }
+    """Lightweight health check endpoint for Railway deployment"""
+    try:
+        # Very simple health check - just return 200 OK
+        return {
+            "status": "healthy",
+            "timestamp": datetime.now().isoformat(),
+            "service": "next-click-predictor"
+        }
+    except Exception as e:
+        logger.error(f"Health check failed: {e}")
+        return JSONResponse(
+            status_code=503,
+            content={"status": "unhealthy", "error": str(e)}
+        )
+
+@app.get("/health/ready")
+async def readiness_check():
+    """More detailed readiness check for full system"""
+    try:
+        health_data = {
+            "status": "ready",
+            "timestamp": datetime.now().isoformat(),
+            "uptime": str(datetime.now() - start_time),
+            "requests_processed": request_count,
+            "service": "next-click-predictor",
+            "version": "1.0.0"
+        }
+        
+        # Test if predictor is available
+        try:
+            if predictor is not None:
+                health_data["predictor_loaded"] = True
+            else:
+                health_data["predictor_loaded"] = False
+        except Exception:
+            health_data["predictor_loaded"] = False
+            
+        return health_data
+        
+    except Exception as e:
+        logger.error(f"Readiness check failed: {e}")
+        return JSONResponse(
+            status_code=503,
+            content={
+                "status": "not_ready", 
+                "error": str(e),
+                "timestamp": datetime.now().isoformat()
+            }
+        )
 
 @app.post("/predict")
 async def predict_next_click(
