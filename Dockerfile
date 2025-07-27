@@ -15,16 +15,17 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 WORKDIR /app
 
 # Copy requirements first for better caching
-COPY requirements.minimal.txt ./requirements.txt
+COPY requirements.test.txt ./requirements.txt
 
 # Install Python packages
 RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir -r requirements.txt
 
-# Copy application code and startup script
+# Copy application code and startup scripts
 COPY src/ ./src/
 COPY start.sh ./start.sh
-RUN chmod +x ./start.sh
+COPY start_simple.sh ./start_simple.sh
+RUN chmod +x ./start.sh ./start_simple.sh
 
 # Create necessary directories
 RUN mkdir -p data logs
@@ -45,5 +46,5 @@ EXPOSE 8000
 # Health check (Railway will handle this via railway.json)
 # HEALTHCHECK removed for Railway compatibility
 
-# Run application via startup script
-CMD ["./start.sh"]
+# Run application via simple startup script
+CMD ["./start_simple.sh"]
