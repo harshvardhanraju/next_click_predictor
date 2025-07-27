@@ -4,7 +4,7 @@
     "builder": "nixpacks"
   },
   "deploy": {
-    "startCommand": "cd /app && ls -la && python app.py",
+    "startCommand": "sh -c 'ls -la && python app.py'",
     "healthcheckPath": "/",
     "healthcheckTimeout": 300,
     "restartPolicyType": "always"
