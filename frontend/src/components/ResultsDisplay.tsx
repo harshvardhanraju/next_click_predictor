@@ -82,8 +82,11 @@ export default function ResultsDisplay({ result, imagePreview, onReset }: Result
               />
             )}
             
-            {/* Overlay UI Elements */}
-            {result.ui_elements && result.ui_elements.map((element, index) => {
+            {/* Overlay for Top Prediction Only */}
+            {result.ui_elements && result.ui_elements.length > 0 && (() => {
+              // Only show overlay for the first element (top prediction)
+              const element = result.ui_elements[0];
+              
               // Handle both API formats - use bbox array if available, fallback to x,y,width,height
               const bbox = element.bbox || [element.x, element.y, element.x + element.width, element.y + element.height];
               const x = bbox[0];
@@ -91,49 +94,33 @@ export default function ResultsDisplay({ result, imagePreview, onReset }: Result
               const width = bbox[2] - bbox[0];
               const height = bbox[3] - bbox[1];
               
-              const isTop = index === 0;
-              const isHovered = hoveredElement === index;
-              
               // Skip if no valid coordinates
-              if (!x && x !== 0 || !y && y !== 0) return null;
+              if ((!x && x !== 0) || (!y && y !== 0)) return null;
               
               return (
                 <div
-                  key={element.id || index}
-                  className={`
-                    absolute border-2 transition-all cursor-pointer
-                    ${isTop 
-                      ? 'border-red-500 bg-red-500 bg-opacity-20' 
-                      : 'border-blue-500 bg-blue-500 bg-opacity-10'
-                    }
-                    ${isHovered ? 'border-4 bg-opacity-30' : ''}
-                  `}
+                  key={element.id || 'top-prediction'}
+                  className="absolute border-3 border-red-500 bg-red-500 bg-opacity-20 transition-all animate-pulse"
                   style={{
                     left: `${(x / 800) * 100}%`,  // Assuming 800px width, adjust based on actual image
                     top: `${(y / 600) * 100}%`,   // Assuming 600px height, adjust based on actual image  
                     width: `${(width / 800) * 100}%`,
                     height: `${(height / 600) * 100}%`,
                   }}
-                  onMouseEnter={() => setHoveredElement(index)}
-                  onMouseLeave={() => setHoveredElement(null)}
-                  title={`${element.type || element.element_type}: ${element.prominence ? (element.prominence * 100).toFixed(1) + '%' : 'N/A'}`}
+                  title={`Most Likely Click: ${element.type || element.element_type} - ${result.top_prediction.click_probability ? (result.top_prediction.click_probability * 100).toFixed(1) + '%' : 'N/A'} confidence`}
                 >
-                  <div className="absolute -top-6 left-0 bg-black text-white text-xs px-2 py-1 rounded whitespace-nowrap">
-                    #{index + 1}: {element.prominence ? (element.prominence * 100).toFixed(1) + '%' : 'N/A'}
+                  <div className="absolute -top-8 left-0 bg-red-600 text-white text-sm px-3 py-1 rounded-md whitespace-nowrap font-semibold shadow-lg">
+                    🎯 Most Likely Click: {result.top_prediction.click_probability ? (result.top_prediction.click_probability * 100).toFixed(1) + '%' : 'N/A'}
                   </div>
                 </div>
               );
-            })}
+            })()}
           </div>
           
-          <div className="mt-4 flex items-center space-x-4 text-sm">
-            <div className="flex items-center space-x-2">
-              <div className="w-4 h-4 border-2 border-red-500 bg-red-500 bg-opacity-20"></div>
-              <span>Top prediction</span>
-            </div>
-            <div className="flex items-center space-x-2">
-              <div className="w-4 h-4 border-2 border-blue-500 bg-blue-500 bg-opacity-10"></div>
-              <span>Other predictions</span>
+          <div className="mt-4 flex items-center justify-center">
+            <div className="flex items-center space-x-2 bg-red-50 px-4 py-2 rounded-lg">
+              <div className="w-4 h-4 border-2 border-red-500 bg-red-500 bg-opacity-20 animate-pulse"></div>
+              <span className="text-red-700 font-medium">🎯 Most Likely Next Click</span>
             </div>
           </div>
         </div>
@@ -273,11 +260,8 @@ export default function ResultsDisplay({ result, imagePreview, onReset }: Result
                   key={prediction.element_id || index}
                   className={`
                     flex items-center justify-between p-3 rounded-lg border-2 transition-colors
-                    ${hoveredElement === index ? 'border-blue-300 bg-blue-50' : 'border-gray-200'}
-                    ${index === 0 ? 'bg-red-50 border-red-300' : ''}
+                    ${index === 0 ? 'bg-red-50 border-red-300' : 'border-gray-200'}
                   `}
-                  onMouseEnter={() => setHoveredElement(index)}
-                  onMouseLeave={() => setHoveredElement(null)}
                 >
                   <div className="flex items-center space-x-3">
                     <span className={`

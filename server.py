@@ -36,7 +36,13 @@ app = FastAPI(title="Next Click Predictor API", version="1.0.0")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        "http://localhost:3000",
+        "http://127.0.0.1:3000", 
+        "https://next-click-predictor-frontend.vercel.app",
+        "https://*.vercel.app",
+        "*"  # Allow all for development - restrict in production
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
