@@ -1,1 +1,1 @@
-web: python minimal_test.py
+web: uvicorn railway_server:app --host 0.0.0.0 --port $PORT
