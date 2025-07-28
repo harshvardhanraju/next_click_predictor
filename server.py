@@ -1,9 +1,22 @@
-from fastapi import FastAPI, File, UploadFile, Form, Request
+from fastapi import FastAPI, File, UploadFile, Form, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 import os
 import json
 import logging
 import sys
+import tempfile
+from datetime import datetime
+
+# Add src directory to Python path
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
+
+# Import ML components
+try:
+    from next_click_predictor import NextClickPredictor
+    ML_AVAILABLE = True
+except ImportError as e:
+    print(f"ML components not available: {e}")
+    ML_AVAILABLE = False
 
 # Configure detailed logging
 logging.basicConfig(
@@ -28,6 +41,18 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Initialize predictor if ML components are available
+predictor = None
+if ML_AVAILABLE:
+    try:
+        predictor = NextClickPredictor()
+        print("✅ ML predictor initialized successfully")
+    except Exception as e:
+        print(f"❌ Failed to initialize ML predictor: {e}")
+        predictor = None
+else:
+    print("⚠️ Running in mock mode - ML dependencies not available")
 
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
@@ -60,85 +85,132 @@ async def predict(
     logger.info(f"User attributes: {user_attributes}")
     logger.info(f"Task description: {task_description}")
     
+    # Validate file type
+    if not file.filename.lower().endswith(('.png', '.jpg', '.jpeg')):
+        raise HTTPException(
+            status_code=400,
+            detail="File must be a PNG, JPG, or JPEG image"
+        )
+    
     try:
         # Parse user attributes
         user_attrs = json.loads(user_attributes)
         logger.info(f"Parsed user attributes: {user_attrs}")
         
-        # Mock prediction result matching frontend types
-        mock_element = {
-            "x": 300,
-            "y": 200,
-            "width": 120,
-            "height": 40,
-            "element_type": "button",
-            "text": "Submit",
-            "confidence": 0.85,
-            "prominence": 0.9
-        }
-        
-        mock_prediction = {
-            "element_id": 1,
-            "click_probability": 0.85,
-            "element": mock_element,
-            "reasoning": [
-                "Button positioned prominently in visual hierarchy",
-                "User's experience level suggests familiarity with interface",
-                "Task description indicates specific action needed"
-            ]
-        }
-        
-        result = {
-            "top_prediction": mock_prediction,
-            "all_predictions": [mock_prediction],
-            "explanation": {
-                "main_explanation": "Based on visual hierarchy and user attributes, the submit button is most likely to be clicked next.",
-                "key_factors": [
-                    {
-                        "factor": "Visual prominence",
-                        "weight": 0.4,
-                        "description": "Button is prominently placed and visually distinct"
-                    },
-                    {
-                        "factor": "User experience level",
-                        "weight": 0.3,
-                        "description": f"User's {user_attrs.get('tech_savviness', 'intermediate')} tech level"
-                    },
-                    {
-                        "factor": "Task alignment",
-                        "weight": 0.3,
-                        "description": "Task description suggests need for form submission"
-                    }
-                ],
-                "reasoning_chain": [
-                    "Analyzed UI elements for clickable components",
-                    "Assessed visual hierarchy and prominence",
-                    "Considered user attributes and experience level",
-                    "Evaluated task description for intent",
-                    "Calculated click probabilities using Bayesian network"
-                ],
-                "confidence_analysis": "High confidence due to clear visual hierarchy and task alignment"
-            },
-            "ui_elements": [mock_element],
-            "processing_time": 1.2,
-            "confidence_score": 0.85,
-            "metadata": {
-                "filename": file.filename,
-                "user_attributes": user_attrs,
-                "task_description": task_description,
-                "model_version": "mock-1.0",
-                "timestamp": "2025-01-27T22:38:00Z"
+        # Use real ML predictor if available, otherwise use mock
+        if predictor is not None:
+            logger.info("Using real ML predictor")
+            
+            # Save uploaded file temporarily
+            with tempfile.NamedTemporaryFile(suffix='.png', delete=False) as tmp:
+                contents = await file.read()
+                tmp.write(contents)
+                tmp_path = tmp.name
+            
+            try:
+                # Run real prediction
+                result = predictor.predict_next_click(
+                    tmp_path,
+                    user_attrs,
+                    task_description,
+                    True
+                )
+                
+                # Convert result to response format  
+                response = {
+                    "top_prediction": result.top_prediction,
+                    "all_predictions": result.all_predictions,
+                    "explanation": result.explanation,
+                    "confidence_score": result.confidence_score,
+                    "processing_time": result.processing_time,
+                    "ui_elements": result.ui_elements,
+                    "metadata": result.metadata
+                }
+                
+                logger.info(f"Real ML prediction completed: confidence {result.confidence_score:.2f}")
+                return response
+                
+            finally:
+                # Clean up temporary file
+                if os.path.exists(tmp_path):
+                    os.remove(tmp_path)
+        else:
+            logger.info("Using mock predictor (ML not available)")
+            # Mock prediction result matching frontend types
+            mock_element = {
+                "x": 300,
+                "y": 200,
+                "width": 120,
+                "height": 40,
+                "element_type": "button",
+                "text": "Submit",
+                "confidence": 0.85,
+                "prominence": 0.9
             }
-        }
-        
-        logger.info(f"Returning prediction result: {result}")
-        return result
+            
+            mock_prediction = {
+                "element_id": 1,
+                "click_probability": 0.85,
+                "element": mock_element,
+                "reasoning": [
+                    "Button positioned prominently in visual hierarchy",
+                    "User's experience level suggests familiarity with interface",
+                    "Task description indicates specific action needed"
+                ]
+            }
+            
+            result = {
+                "top_prediction": mock_prediction,
+                "all_predictions": [mock_prediction],
+                "explanation": {
+                    "main_explanation": "Based on visual hierarchy and user attributes, the submit button is most likely to be clicked next.",
+                    "key_factors": [
+                        {
+                            "factor": "Visual prominence",
+                            "weight": 0.4,
+                            "description": "Button is prominently placed and visually distinct"
+                        },
+                        {
+                            "factor": "User experience level",
+                            "weight": 0.3,
+                            "description": f"User's {user_attrs.get('tech_savviness', 'intermediate')} tech level"
+                        },
+                        {
+                            "factor": "Task alignment",
+                            "weight": 0.3,
+                            "description": "Task description suggests need for form submission"
+                        }
+                    ],
+                    "reasoning_chain": [
+                        "Analyzed UI elements for clickable components",
+                        "Assessed visual hierarchy and prominence",
+                        "Considered user attributes and experience level",
+                        "Evaluated task description for intent",
+                        "Calculated click probabilities using Bayesian network"
+                    ],
+                    "confidence_analysis": "High confidence due to clear visual hierarchy and task alignment"
+                },
+                "ui_elements": [mock_element],
+                "processing_time": 1.2,
+                "confidence_score": 0.85,
+                "metadata": {
+                    "filename": file.filename,
+                    "user_attributes": user_attrs,
+                    "task_description": task_description,
+                    "model_version": "mock-1.0" if predictor is None else "ml-1.0",
+                    "timestamp": datetime.now().isoformat()
+                }
+            }
+            
+            logger.info(f"Returning prediction result: {result}")
+            return result
         
     except Exception as e:
         logger.error(f"Predict endpoint error: {str(e)}")
-        error_result = {"error": str(e), "status": "failed"}
-        logger.info(f"Returning error: {error_result}")
-        return error_result
+        raise HTTPException(
+            status_code=500,
+            detail=f"Prediction failed: {str(e)}"
+        )
 
 @app.get("/health")
 def health():
