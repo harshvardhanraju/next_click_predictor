@@ -1,0 +1,10 @@
+# Google Cloud Run Optimized Requirements
+# Minimal dependencies for fast cold starts and small image size
+
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+gunicorn==21.2.0
+python-multipart==0.0.6
+
+# Additional lightweight dependencies
+requests==2.31.0

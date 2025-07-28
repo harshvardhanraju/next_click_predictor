@@ -1,0 +1,61 @@
+# Google Cloud Run Optimized Dockerfile
+# Multi-stage build for minimal image size and fast cold starts
+
+# Build stage - use slim Python image
+FROM python:3.11-slim as builder
+
+# Set environment variables for build optimization
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
+
+# Install build dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create virtual environment
+RUN python -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+
+# Copy and install Python dependencies
+COPY requirements.cloudrun.txt .
+RUN pip install --no-cache-dir -r requirements.cloudrun.txt
+
+# Production stage - use distroless for security and size
+FROM python:3.11-slim as production
+
+# Set Cloud Run optimized environment variables
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PORT=8080 \
+    WORKERS=1
+
+# Create non-root user for security
+RUN groupadd --gid 65532 cloudrun && \
+    useradd --uid 65532 --gid cloudrun --shell /bin/bash --create-home cloudrun
+
+# Copy virtual environment from builder
+COPY --from=builder /opt/venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+
+# Set working directory
+WORKDIR /app
+
+# Copy application code
+COPY cloudrun_app.py .
+
+# Change ownership to non-root user
+RUN chown -R cloudrun:cloudrun /app
+USER cloudrun
+
+# Expose port for Cloud Run
+EXPOSE 8080
+
+# Health check for Cloud Run
+HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
+    CMD python -c "import requests; requests.get('http://localhost:8080/health')" || exit 1
+
+# Cloud Run optimized startup command
+CMD exec gunicorn --bind :$PORT --workers $WORKERS --worker-class uvicorn.workers.UvicornWorker --access-logfile - --error-logfile - cloudrun_app:app

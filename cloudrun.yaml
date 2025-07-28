@@ -1,0 +1,49 @@
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: next-click-predictor
+  annotations:
+    run.googleapis.com/ingress: all
+    run.googleapis.com/execution-environment: gen1
+spec:
+  template:
+    metadata:
+      annotations:
+        # Cloud Run free tier optimizations
+        run.googleapis.com/cpu-throttling: "true"
+        run.googleapis.com/memory: "512Mi"
+        run.googleapis.com/max-instances: "10"
+        run.googleapis.com/min-instances: "0"
+        autoscaling.knative.dev/maxScale: "10"
+        autoscaling.knative.dev/minScale: "0"
+    spec:
+      containerConcurrency: 80
+      timeoutSeconds: 300
+      containers:
+      - image: gcr.io/PROJECT_ID/next-click-predictor:latest
+        ports:
+        - containerPort: 8080
+        env:
+        - name: PORT
+          value: "8080"
+        - name: WORKERS
+          value: "1"
+        resources:
+          limits:
+            cpu: "1000m"
+            memory: "512Mi"
+          requests:
+            cpu: "100m"
+            memory: "128Mi"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 10
+          periodSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 10
