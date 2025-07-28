@@ -10,13 +10,9 @@ from datetime import datetime
 # Add src directory to Python path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
 
-# Import ML components
-try:
-    from next_click_predictor import NextClickPredictor
-    ML_AVAILABLE = True
-except ImportError as e:
-    print(f"ML components not available: {e}")
-    ML_AVAILABLE = False
+# ML components disabled for Railway deployment
+ML_AVAILABLE = False
+print("ML components disabled for Railway lightweight deployment")
 
 # Configure detailed logging
 logging.basicConfig(
@@ -48,17 +44,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Initialize predictor if ML components are available
+# Initialize predictor - Force mock mode for Railway deployment
 predictor = None
-if ML_AVAILABLE:
-    try:
-        predictor = NextClickPredictor()
-        print("✅ ML predictor initialized successfully")
-    except Exception as e:
-        print(f"❌ Failed to initialize ML predictor: {e}")
-        predictor = None
-else:
-    print("⚠️ Running in mock mode - ML dependencies not available")
+print("⚠️ Running in Railway mock mode - Using lightweight prediction service")
 
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
