@@ -88,7 +88,12 @@ export default function ResultsDisplay({ result, imagePreview, onReset }: Result
               const element = result.ui_elements[0];
               
               // Handle both API formats - use bbox array if available, fallback to x,y,width,height
-              const bbox = element.bbox || [element.x, element.y, element.x + element.width, element.y + element.height];
+              const bbox = element.bbox || [
+                element.x ?? 0, 
+                element.y ?? 0, 
+                (element.x ?? 0) + (element.width ?? 0), 
+                (element.y ?? 0) + (element.height ?? 0)
+              ];
               const x = bbox[0];
               const y = bbox[1];
               const width = bbox[2] - bbox[0];
