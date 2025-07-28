@@ -15,7 +15,14 @@
       "Bash(git commit:*)",
       "Bash(git push:*)",
       "WebFetch(domain:nextclickpredictor-production.up.railway.app)",
-      "Bash(chmod:*)"
+      "Bash(chmod:*)",
+      "Bash(find:*)",
+      "Bash(git merge:*)",
+      "Bash(git checkout:*)",
+      "Bash(ls:*)",
+      "Bash(./pre-deployment-check.sh:*)",
+      "WebFetch(domain:next-click-predictor-157954281090.asia-south1.run.app)",
+      "Bash(npm run build:*)"
     ],
     "deny": []
   }

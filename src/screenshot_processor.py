@@ -7,6 +7,14 @@ import json
 import uuid
 import logging
 
+# Import the new advanced UI detector
+try:
+    from advanced_ui_detector import AdvancedUIDetector, DetectedElement
+    ADVANCED_DETECTOR_AVAILABLE = True
+except ImportError:
+    ADVANCED_DETECTOR_AVAILABLE = False
+    logging.warning("Advanced UI detector not available. Falling back to basic detection.")
+
 # Optional imports with error handling
 try:
     import easyocr
@@ -43,7 +51,20 @@ class ScreenshotProcessor:
     Processes PNG screenshots to extract UI elements and their features
     """
     
-    def __init__(self):
+    def __init__(self, use_advanced_detector: bool = True):
+        # Initialize advanced UI detector if available
+        self.use_advanced_detector = use_advanced_detector and ADVANCED_DETECTOR_AVAILABLE
+        if self.use_advanced_detector:
+            try:
+                self.advanced_detector = AdvancedUIDetector()
+                logging.info("Advanced UI detector initialized successfully")
+            except Exception as e:
+                logging.error(f"Failed to initialize advanced detector: {e}")
+                self.use_advanced_detector = False
+                self.advanced_detector = None
+        else:
+            self.advanced_detector = None
+        
         # Initialize OCR reader if available
         if EASYOCR_AVAILABLE:
             try:
@@ -101,12 +122,56 @@ class ScreenshotProcessor:
             'elements': [self._element_to_dict(elem) for elem in elements],
             'processing_metadata': {
                 'image_path': screenshot_path,
-                'processing_success': True
+                'processing_success': True,
+                'detection_method': 'advanced' if self.use_advanced_detector else 'basic',
+                'advanced_detector_available': ADVANCED_DETECTOR_AVAILABLE,
+                'ocr_available': EASYOCR_AVAILABLE
             }
         }
     
     def _extract_ui_elements(self, image: np.ndarray) -> List[UIElement]:
         """Extract UI elements using computer vision techniques"""
+        if self.use_advanced_detector and self.advanced_detector:
+            # Use advanced multi-technique detection
+            return self._extract_ui_elements_advanced(image)
+        else:
+            # Fall back to basic detection
+            return self._extract_ui_elements_basic(image)
+    
+    def _extract_ui_elements_advanced(self, image: np.ndarray) -> List[UIElement]:
+        """Extract UI elements using the advanced detector"""
+        elements = []
+        
+        try:
+            # Use the advanced detector
+            detected_elements = self.advanced_detector.detect_elements(image)
+            
+            # Convert DetectedElement objects to UIElement objects
+            for det_elem in detected_elements:
+                ui_element = UIElement(
+                    element_id=det_elem.element_id,
+                    element_type=det_elem.element_type,
+                    text="",  # Will be filled later by OCR
+                    bbox=det_elem.bbox,
+                    center=det_elem.center,
+                    size=det_elem.size,
+                    prominence=det_elem.confidence,  # Use detection confidence as initial prominence
+                    visibility=True,
+                    color_features={},  # Will be calculated later
+                    position_features={}  # Will be calculated later
+                )
+                elements.append(ui_element)
+            
+            logging.info(f"Advanced detector found {len(elements)} elements")
+            return elements
+            
+        except Exception as e:
+            logging.error(f"Advanced detection failed: {e}")
+            # Fall back to basic detection
+            return self._extract_ui_elements_basic(image)
+    
+    def _extract_ui_elements_basic(self, image: np.ndarray) -> List[UIElement]:
+        """Extract UI elements using basic computer vision techniques (fallback)"""
         elements = []
         
         # Convert to grayscale for better edge detection
@@ -121,6 +186,7 @@ class ScreenshotProcessor:
         # Remove duplicate elements
         elements = self._remove_duplicates(elements)
         
+        logging.info(f"Basic detector found {len(elements)} elements")
         return elements
     
     def _detect_rectangular_elements(self, gray_image: np.ndarray) -> List[UIElement]:
