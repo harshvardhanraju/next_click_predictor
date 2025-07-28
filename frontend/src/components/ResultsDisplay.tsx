@@ -83,14 +83,23 @@ export default function ResultsDisplay({ result, imagePreview, onReset }: Result
             )}
             
             {/* Overlay UI Elements */}
-            {result.all_predictions.map((prediction, index) => {
-              const element = prediction.element;
+            {result.ui_elements && result.ui_elements.map((element, index) => {
+              // Handle both API formats - use bbox array if available, fallback to x,y,width,height
+              const bbox = element.bbox || [element.x, element.y, element.x + element.width, element.y + element.height];
+              const x = bbox[0];
+              const y = bbox[1];
+              const width = bbox[2] - bbox[0];
+              const height = bbox[3] - bbox[1];
+              
               const isTop = index === 0;
               const isHovered = hoveredElement === index;
               
+              // Skip if no valid coordinates
+              if (!x && x !== 0 || !y && y !== 0) return null;
+              
               return (
                 <div
-                  key={index}
+                  key={element.id || index}
                   className={`
                     absolute border-2 transition-all cursor-pointer
                     ${isTop 
@@ -100,17 +109,17 @@ export default function ResultsDisplay({ result, imagePreview, onReset }: Result
                     ${isHovered ? 'border-4 bg-opacity-30' : ''}
                   `}
                   style={{
-                    left: `${(element.x / (imagePreview ? 1 : 1)) * 100}%`,
-                    top: `${(element.y / (imagePreview ? 1 : 1)) * 100}%`,
-                    width: `${(element.width / (imagePreview ? 1 : 1)) * 100}%`,
-                    height: `${(element.height / (imagePreview ? 1 : 1)) * 100}%`,
+                    left: `${(x / 800) * 100}%`,  // Assuming 800px width, adjust based on actual image
+                    top: `${(y / 600) * 100}%`,   // Assuming 600px height, adjust based on actual image  
+                    width: `${(width / 800) * 100}%`,
+                    height: `${(height / 600) * 100}%`,
                   }}
                   onMouseEnter={() => setHoveredElement(index)}
                   onMouseLeave={() => setHoveredElement(null)}
-                  title={`${element.element_type}: ${formatProbability(prediction.click_probability)}`}
+                  title={`${element.type || element.element_type}: ${element.prominence ? (element.prominence * 100).toFixed(1) + '%' : 'N/A'}`}
                 >
                   <div className="absolute -top-6 left-0 bg-black text-white text-xs px-2 py-1 rounded whitespace-nowrap">
-                    #{index + 1}: {formatProbability(prediction.click_probability)}
+                    #{index + 1}: {element.prominence ? (element.prominence * 100).toFixed(1) + '%' : 'N/A'}
                   </div>
                 </div>
               );
@@ -140,31 +149,31 @@ export default function ResultsDisplay({ result, imagePreview, onReset }: Result
             <div className="space-y-3">
               <div className="flex justify-between items-center">
                 <span className="font-medium text-gray-700">
-                  {result.top_prediction.element.element_type.toUpperCase()}
+                  {result.top_prediction.element_type?.toUpperCase() || 'ELEMENT'}
                 </span>
                 <span className="text-2xl font-bold text-red-600">
                   {formatProbability(result.top_prediction.click_probability)}
                 </span>
               </div>
               
-              {result.top_prediction.element.text && (
+              {result.top_prediction.element_text && (
                 <div className="bg-white bg-opacity-70 rounded p-3">
                   <p className="text-sm text-gray-600">Text Content:</p>
-                  <p className="font-medium">"{result.top_prediction.element.text}"</p>
+                  <p className="font-medium">"{result.top_prediction.element_text}"</p>
                 </div>
               )}
               
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div>
-                  <p className="text-gray-600">Position</p>
+                  <p className="text-gray-600">Element ID</p>
                   <p className="font-medium">
-                    {result.top_prediction.element.x}, {result.top_prediction.element.y}
+                    {result.top_prediction.element_id || 'N/A'}
                   </p>
                 </div>
                 <div>
-                  <p className="text-gray-600">Size</p>
+                  <p className="text-gray-600">Confidence</p>
                   <p className="font-medium">
-                    {result.top_prediction.element.width} × {result.top_prediction.element.height}
+                    {formatProbability(result.top_prediction.confidence || result.top_prediction.click_probability)}
                   </p>
                 </div>
               </div>
@@ -200,38 +209,53 @@ export default function ResultsDisplay({ result, imagePreview, onReset }: Result
               {showDetails && (
                 <div className="space-y-4">
                   {/* Key Factors */}
-                  <div>
-                    <h4 className="font-semibold text-gray-700 mb-2">Key Factors:</h4>
-                    <div className="space-y-2">
-                      {result.explanation.key_factors.map((factor, index) => (
-                        <div key={index} className="bg-gray-50 rounded p-3">
-                          <div className="flex justify-between items-center mb-1">
-                            <span className="font-medium text-gray-800">{factor.factor}</span>
-                            <span className="text-sm font-semibold text-blue-600">
-                              {(factor.weight * 100).toFixed(0)}%
-                            </span>
+                  {result.explanation.key_factors && result.explanation.key_factors.length > 0 && (
+                    <div>
+                      <h4 className="font-semibold text-gray-700 mb-2">Key Factors:</h4>
+                      <div className="space-y-2">
+                        {result.explanation.key_factors.map((factor, index) => (
+                          <div key={index} className="bg-gray-50 rounded p-3">
+                            <div className="flex justify-between items-center mb-1">
+                              <span className="font-medium text-gray-800">
+                                {factor.name || factor.factor || 'Factor'}
+                              </span>
+                              <span className="text-sm font-semibold text-blue-600">
+                                {factor.weight ? (factor.weight * 100).toFixed(0) + '%' : 
+                                 factor.importance ? (factor.importance * 100).toFixed(0) + '%' : 
+                                 factor.influence ? Math.abs(factor.influence * 100).toFixed(0) + '%' : 'N/A'}
+                              </span>
+                            </div>
+                            <p className="text-sm text-gray-600">{factor.description}</p>
+                            {factor.evidence && (
+                              <p className="text-xs text-gray-500 mt-1">Evidence: {factor.evidence}</p>
+                            )}
                           </div>
-                          <p className="text-sm text-gray-600">{factor.description}</p>
-                        </div>
-                      ))}
+                        ))}
+                      </div>
                     </div>
-                  </div>
+                  )}
 
                   {/* Reasoning Chain */}
-                  <div>
-                    <h4 className="font-semibold text-gray-700 mb-2">Reasoning Process:</h4>
-                    <ol className="list-decimal list-inside space-y-1 text-sm text-gray-600">
-                      {result.explanation.reasoning_chain.map((step, index) => (
-                        <li key={index}>{step}</li>
-                      ))}
-                    </ol>
-                  </div>
+                  {result.explanation.reasoning_chain && result.explanation.reasoning_chain.length > 0 && (
+                    <div>
+                      <h4 className="font-semibold text-gray-700 mb-2">Reasoning Process:</h4>
+                      <ol className="list-decimal list-inside space-y-1 text-sm text-gray-600">
+                        {result.explanation.reasoning_chain.map((step, index) => (
+                          <li key={index}>{step}</li>
+                        ))}
+                      </ol>
+                    </div>
+                  )}
 
                   {/* Confidence Analysis */}
-                  <div className="bg-yellow-50 rounded p-3">
-                    <h4 className="font-semibold text-gray-700 mb-1">Confidence Analysis:</h4>
-                    <p className="text-sm text-gray-600">{result.explanation.confidence_analysis}</p>
-                  </div>
+                  {(result.explanation.confidence_analysis || result.explanation.confidence_explanation) && (
+                    <div className="bg-yellow-50 rounded p-3">
+                      <h4 className="font-semibold text-gray-700 mb-1">Confidence Analysis:</h4>
+                      <p className="text-sm text-gray-600">
+                        {result.explanation.confidence_analysis || result.explanation.confidence_explanation}
+                      </p>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -244,9 +268,9 @@ export default function ResultsDisplay({ result, imagePreview, onReset }: Result
             </h3>
             
             <div className="space-y-3">
-              {result.all_predictions.slice(0, 5).map((prediction, index) => (
+              {result.all_predictions && result.all_predictions.slice(0, 5).map((prediction, index) => (
                 <div 
-                  key={index}
+                  key={prediction.element_id || index}
                   className={`
                     flex items-center justify-between p-3 rounded-lg border-2 transition-colors
                     ${hoveredElement === index ? 'border-blue-300 bg-blue-50' : 'border-gray-200'}
@@ -264,11 +288,11 @@ export default function ResultsDisplay({ result, imagePreview, onReset }: Result
                     </span>
                     <div>
                       <p className="font-medium text-gray-800">
-                        {prediction.element.element_type.toUpperCase()}
+                        {prediction.element_type?.toUpperCase() || 'ELEMENT'}
                       </p>
-                      {prediction.element.text && (
+                      {prediction.element_text && (
                         <p className="text-sm text-gray-500 truncate max-w-xs">
-                          "{prediction.element.text}"
+                          "{prediction.element_text}"
                         </p>
                       )}
                     </div>
@@ -278,7 +302,7 @@ export default function ResultsDisplay({ result, imagePreview, onReset }: Result
                       {formatProbability(prediction.click_probability)}
                     </p>
                     <p className="text-xs text-gray-500">
-                      confidence: {(prediction.element.confidence * 100).toFixed(0)}%
+                      confidence: {((prediction.confidence || prediction.click_probability) * 100).toFixed(0)}%
                     </p>
                   </div>
                 </div>

@@ -13,32 +13,54 @@ export interface PredictionRequest {
 }
 
 export interface UIElement {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-  element_type: string;
-  text: string;
-  confidence: number;
-  prominence: number;
+  id?: string;
+  type?: string;
+  element_type?: string;
+  text?: string;
+  bbox?: number[]; // [x1, y1, x2, y2]
+  x?: number;
+  y?: number;
+  width?: number;
+  height?: number;
+  center?: number[];
+  size?: number[];
+  prominence?: number;
+  visibility?: boolean;
+  confidence?: number;
+  color_features?: any;
+  position_features?: any;
 }
 
 export interface Prediction {
-  element_id: number;
+  element_id?: string | number;
+  element_type?: string;
+  element_text?: string;
   click_probability: number;
-  element: UIElement;
-  reasoning: string[];
+  confidence?: number;
+  prominence?: number;
+  rank?: number;
+  element?: UIElement; // For backward compatibility
+  reasoning?: string[];
 }
 
 export interface Explanation {
   main_explanation: string;
-  key_factors: Array<{
-    factor: string;
-    weight: number;
+  key_factors?: Array<{
+    name?: string;
+    factor?: string;
+    weight?: number;
+    influence?: number;
+    importance?: number;
     description: string;
+    evidence?: string;
+    type?: string;
   }>;
-  reasoning_chain: string[];
-  confidence_analysis: string;
+  factor_explanations?: string[];
+  reasoning_chain?: string[];
+  confidence_analysis?: string;
+  confidence_explanation?: string;
+  alternative_explanations?: string[];
+  prediction_summary?: any;
 }
 
 export interface PredictionResult {
