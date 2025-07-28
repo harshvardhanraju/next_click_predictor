@@ -1,1 +1,1 @@
-web: uvicorn railway_server:app --host 0.0.0.0 --port $PORT --log-level info
+web: uvicorn simple_railway:app --host 0.0.0.0 --port $PORT --log-level info
