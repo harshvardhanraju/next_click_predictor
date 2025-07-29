@@ -116,16 +116,27 @@ class ScreenshotProcessor:
         # Calculate prominence scores
         elements = self._calculate_prominence(elements, width, height)
         
+        # Filter out elements with empty text and low prominence
+        filtered_elements = []
+        for elem in elements:
+            # Keep element if it has meaningful text OR high visual prominence
+            if (elem.text and elem.text.strip()) or elem.prominence > 0.4:
+                filtered_elements.append(elem)
+        
+        logging.info(f"Filtered {len(elements)} -> {len(filtered_elements)} elements (removed empty text)")
+        
         return {
             'screen_dimensions': [width, height],
-            'total_elements': len(elements),
-            'elements': [self._element_to_dict(elem) for elem in elements],
+            'total_elements': len(filtered_elements),
+            'elements': [self._element_to_dict(elem) for elem in filtered_elements],
             'processing_metadata': {
                 'image_path': screenshot_path,
                 'processing_success': True,
                 'detection_method': 'advanced' if self.use_advanced_detector else 'basic',
                 'advanced_detector_available': ADVANCED_DETECTOR_AVAILABLE,
-                'ocr_available': EASYOCR_AVAILABLE
+                'ocr_available': EASYOCR_AVAILABLE,
+                'original_elements': len(elements),
+                'filtered_elements': len(filtered_elements)
             }
         }
     
@@ -284,48 +295,271 @@ class ScreenshotProcessor:
         return "text"
     
     def _extract_text_features(self, image: np.ndarray, elements: List[UIElement]) -> List[UIElement]:
-        """Extract text content from elements that don't have text yet"""
+        """Enhanced text extraction with better OCR integration"""
         if not self.ocr_reader:
-            # No OCR available, skip text extraction
             return elements
-            
-        for element in elements:
-            if not element.text:
-                # Extract text from element's bounding box
-                x1, y1, x2, y2 = element.bbox
-                roi = image[y1:y2, x1:x2]
-                
-                try:
-                    ocr_results = self.ocr_reader.readtext(roi)
-                    if ocr_results:
-                        element.text = ocr_results[0][1]
-                        element.element_type = self._classify_element_type(element.text)
-                except Exception as e:
-                    logging.debug(f"Failed to extract text from element {element.element_id}: {e}")
-                    element.text = ""
         
-        return elements
+        # First, run full-image OCR to get all text with proper grouping
+        try:
+            ocr_results = self.ocr_reader.readtext(image, detail=1)
+            all_text_elements = self._process_ocr_results(ocr_results)
+            logging.info(f"OCR found {len(all_text_elements)} text elements")
+        except Exception as e:
+            logging.error(f"OCR failed: {e}")
+            return elements
+        
+        enhanced_elements = []
+        
+        # Match visual elements with OCR text
+        for element in elements:
+            if element.text and element.text.strip():
+                # Element already has text, keep it
+                enhanced_elements.append(element)
+            else:
+                # Try to find matching text from OCR results
+                matched_text = self._find_matching_text(element, all_text_elements)
+                
+                if matched_text:
+                    # Create enhanced element with matched text
+                    enhanced_element = UIElement(
+                        element_id=element.element_id,
+                        element_type=self._classify_element_type(matched_text),
+                        text=matched_text,
+                        bbox=element.bbox,
+                        center=element.center,
+                        size=element.size,
+                        prominence=element.prominence,
+                        visibility=element.visibility,
+                        color_features=element.color_features,
+                        position_features=element.position_features
+                    )
+                    enhanced_elements.append(enhanced_element)
+                else:
+                    # Keep element without text if it has high visual prominence
+                    if element.prominence > 0.5:
+                        enhanced_elements.append(element)
+        
+        # Add pure text elements that weren't matched to visual elements
+        for text_elem in all_text_elements:
+            if not self._is_text_already_used(text_elem, enhanced_elements):
+                # Create new UI element for this text
+                ui_element = UIElement(
+                    element_id=f"text_only_{uuid.uuid4().hex[:8]}",
+                    element_type=self._classify_element_type(text_elem['text']),
+                    text=text_elem['text'],
+                    bbox=text_elem['bbox'],
+                    center=text_elem['center'],
+                    size=(text_elem['bbox'][2] - text_elem['bbox'][0], 
+                          text_elem['bbox'][3] - text_elem['bbox'][1]),
+                    prominence=min(0.8, text_elem['confidence']),
+                    visibility=True,
+                    color_features={},
+                    position_features={}
+                )
+                enhanced_elements.append(ui_element)
+        
+        logging.info(f"Enhanced {len(elements)} visual -> {len(enhanced_elements)} total elements")
+        return enhanced_elements
+    
+    def _process_ocr_results(self, ocr_results: List) -> List[Dict]:
+        """Process OCR results with text grouping and merging"""
+        if not ocr_results:
+            return []
+        
+        # Convert to workable format and filter low confidence
+        text_items = []
+        for (bbox, text, confidence) in ocr_results:
+            if confidence < 0.3 or not text.strip():
+                continue
+            
+            x1, y1 = int(min([p[0] for p in bbox])), int(min([p[1] for p in bbox]))
+            x2, y2 = int(max([p[0] for p in bbox])), int(max([p[1] for p in bbox]))
+            
+            text_items.append({
+                'text': text.strip(),
+                'bbox': (x1, y1, x2, y2),
+                'center': ((x1 + x2) // 2, (y1 + y2) // 2),
+                'confidence': confidence,
+                'grouped': False
+            })
+        
+        # Group nearby text items (for multi-word elements like "Sign In")
+        grouped_text = self._group_nearby_text(text_items)
+        
+        return grouped_text
+    
+    def _group_nearby_text(self, text_items: List[Dict]) -> List[Dict]:
+        """Group nearby text items that likely belong together"""
+        if not text_items:
+            return []
+        
+        groups = []
+        threshold_distance = 40  # pixels
+        
+        for item in text_items:
+            if item['grouped']:
+                continue
+            
+            # Start new group with current item
+            current_group = [item]
+            item['grouped'] = True
+            
+            # Find nearby items to group
+            for other_item in text_items:
+                if other_item['grouped']:
+                    continue
+                
+                # Calculate distance
+                dx = abs(item['center'][0] - other_item['center'][0])
+                dy = abs(item['center'][1] - other_item['center'][1])
+                distance = np.sqrt(dx*dx + dy*dy)
+                
+                # Group if close and on similar horizontal line
+                if distance < threshold_distance and dy < 15:
+                    current_group.append(other_item)
+                    other_item['grouped'] = True
+            
+            # Merge the group into a single text element
+            merged = self._merge_text_group(current_group)
+            if merged:
+                groups.append(merged)
+        
+        return groups
+    
+    def _merge_text_group(self, group: List[Dict]) -> Dict:
+        """Merge a group of text items into a single element"""
+        if not group:
+            return None
+        
+        # Sort by horizontal position for proper word order
+        group.sort(key=lambda x: x['center'][0])
+        
+        # Merge text with spaces
+        merged_text = ' '.join([item['text'] for item in group])
+        
+        # Calculate combined bounding box
+        x1 = min([item['bbox'][0] for item in group])
+        y1 = min([item['bbox'][1] for item in group])
+        x2 = max([item['bbox'][2] for item in group])
+        y2 = max([item['bbox'][3] for item in group])
+        
+        # Average confidence
+        avg_confidence = sum([item['confidence'] for item in group]) / len(group)
+        
+        return {
+            'text': merged_text,
+            'bbox': (x1, y1, x2, y2),
+            'center': ((x1 + x2) // 2, (y1 + y2) // 2),
+            'confidence': avg_confidence
+        }
+    
+    def _find_matching_text(self, element: UIElement, text_elements: List[Dict]) -> str:
+        """Find text that overlaps with a visual element"""
+        elem_x1, elem_y1, elem_x2, elem_y2 = element.bbox
+        
+        best_match = None
+        best_overlap = 0
+        
+        for text_elem in text_elements:
+            text_x1, text_y1, text_x2, text_y2 = text_elem['bbox']
+            
+            # Calculate overlap area
+            overlap_x1 = max(elem_x1, text_x1)
+            overlap_y1 = max(elem_y1, text_y1) 
+            overlap_x2 = min(elem_x2, text_x2)
+            overlap_y2 = min(elem_y2, text_y2)
+            
+            if overlap_x2 > overlap_x1 and overlap_y2 > overlap_y1:
+                overlap_area = (overlap_x2 - overlap_x1) * (overlap_y2 - overlap_y1)
+                text_area = (text_x2 - text_x1) * (text_y2 - text_y1)
+                
+                if text_area > 0:
+                    overlap_ratio = overlap_area / text_area
+                    
+                    # Prefer higher confidence and better overlap
+                    score = overlap_ratio * text_elem['confidence']
+                    
+                    if score > best_overlap and overlap_ratio > 0.2:
+                        best_overlap = score
+                        best_match = text_elem['text']
+        
+        return best_match
+    
+    def _is_text_already_used(self, text_elem: Dict, enhanced_elements: List[UIElement]) -> bool:
+        """Check if text is already used in enhanced elements"""
+        text_to_check = text_elem['text'].lower().strip()
+        
+        for element in enhanced_elements:
+            if element.text and text_to_check in element.text.lower():
+                return True
+            
+            # Also check for substantial bbox overlap
+            elem_x1, elem_y1, elem_x2, elem_y2 = element.bbox
+            text_x1, text_y1, text_x2, text_y2 = text_elem['bbox']
+            
+            overlap_x1 = max(elem_x1, text_x1)
+            overlap_y1 = max(elem_y1, text_y1)
+            overlap_x2 = min(elem_x2, text_x2)
+            overlap_y2 = min(elem_y2, text_y2)
+            
+            if overlap_x2 > overlap_x1 and overlap_y2 > overlap_y1:
+                overlap_area = (overlap_x2 - overlap_x1) * (overlap_y2 - overlap_y1)
+                text_area = (text_x2 - text_x1) * (text_y2 - text_y1)
+                
+                if text_area > 0 and overlap_area / text_area > 0.5:
+                    return True
+        
+        return False
     
     def _calculate_visual_features(self, image: np.ndarray, elements: List[UIElement]) -> List[UIElement]:
         """Calculate visual features like color and contrast"""
+        enhanced_elements = []
+        
         for element in elements:
             x1, y1, x2, y2 = element.bbox
+            
+            # Ensure valid ROI bounds
+            if (x1 >= x2 or y1 >= y2 or x1 < 0 or y1 < 0 or 
+                x2 >= image.shape[1] or y2 >= image.shape[0]):
+                enhanced_elements.append(element)
+                continue
+                
             roi = image[y1:y2, x1:x2]
             
+            color_features = {}
             if roi.size > 0:
-                # Calculate dominant color
-                dominant_color = self._get_dominant_color(roi)
-                
-                # Calculate contrast
-                contrast = self._calculate_contrast(roi)
-                
-                element.color_features = {
-                    'dominant_color': dominant_color,
-                    'contrast': contrast,
-                    'brightness': np.mean(cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY))
-                }
+                try:
+                    # Calculate dominant color
+                    dominant_color = self._get_dominant_color(roi)
+                    
+                    # Calculate contrast
+                    contrast = self._calculate_contrast(roi)
+                    
+                    color_features = {
+                        'dominant_color': dominant_color,
+                        'contrast': contrast,
+                        'brightness': np.mean(cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY))
+                    }
+                except Exception as e:
+                    logging.debug(f"Failed to calculate visual features for element {element.element_id}: {e}")
+                    color_features = {}
+            
+            # Create new element with visual features
+            enhanced_element = UIElement(
+                element_id=element.element_id,
+                element_type=element.element_type,
+                text=element.text,
+                bbox=element.bbox,
+                center=element.center,
+                size=element.size,
+                prominence=element.prominence,
+                visibility=element.visibility,
+                color_features=color_features,
+                position_features=element.position_features
+            )
+            enhanced_elements.append(enhanced_element)
         
-        return elements
+        return enhanced_elements
     
     def _get_dominant_color(self, roi: np.ndarray) -> str:
         """Get dominant color of a region"""
@@ -358,12 +592,14 @@ class ScreenshotProcessor:
     
     def _calculate_position_features(self, elements: List[UIElement], width: int, height: int) -> List[UIElement]:
         """Calculate position-based features"""
+        enhanced_elements = []
+        
         for element in elements:
             center_x, center_y = element.center
             
             # Relative position (0-1)
-            rel_x = center_x / width
-            rel_y = center_y / height
+            rel_x = center_x / width if width > 0 else 0.5
+            rel_y = center_y / height if height > 0 else 0.5
             
             # Quadrant
             quadrant = self._get_quadrant(rel_x, rel_y)
@@ -371,7 +607,7 @@ class ScreenshotProcessor:
             # Distance from center
             center_distance = np.sqrt((rel_x - 0.5)**2 + (rel_y - 0.5)**2)
             
-            element.position_features = {
+            position_features = {
                 'relative_x': rel_x,
                 'relative_y': rel_y,
                 'quadrant': quadrant,
@@ -379,8 +615,23 @@ class ScreenshotProcessor:
                 'is_top_half': rel_y < 0.5,
                 'is_left_half': rel_x < 0.5
             }
+            
+            # Create new element with position features
+            enhanced_element = UIElement(
+                element_id=element.element_id,
+                element_type=element.element_type,
+                text=element.text,
+                bbox=element.bbox,
+                center=element.center,
+                size=element.size,
+                prominence=element.prominence,
+                visibility=element.visibility,
+                color_features=element.color_features,
+                position_features=position_features
+            )
+            enhanced_elements.append(enhanced_element)
         
-        return elements
+        return enhanced_elements
     
     def _get_quadrant(self, rel_x: float, rel_y: float) -> str:
         """Determine which quadrant the element is in"""
@@ -395,14 +646,16 @@ class ScreenshotProcessor:
     
     def _calculate_prominence(self, elements: List[UIElement], width: int, height: int) -> List[UIElement]:
         """Calculate prominence score for each element"""
+        enhanced_elements = []
+        
         for element in elements:
             # Size factor
             element_area = element.size[0] * element.size[1]
-            total_area = width * height
+            total_area = width * height if width > 0 and height > 0 else 1
             size_factor = element_area / total_area
             
             # Position factor (center elements are more prominent)
-            position_factor = 1.0 - element.position_features['center_distance']
+            position_factor = 1.0 - element.position_features.get('center_distance', 0.5)
             
             # Contrast factor
             contrast_factor = element.color_features.get('contrast', 0.5)
@@ -418,9 +671,24 @@ class ScreenshotProcessor:
                 text_factor * 0.2
             )
             
-            element.prominence = min(1.0, prominence)
+            calculated_prominence = min(1.0, prominence)
+            
+            # Create new element with calculated prominence
+            enhanced_element = UIElement(
+                element_id=element.element_id,
+                element_type=element.element_type,
+                text=element.text,
+                bbox=element.bbox,
+                center=element.center,
+                size=element.size,
+                prominence=calculated_prominence,
+                visibility=element.visibility,
+                color_features=element.color_features,
+                position_features=element.position_features
+            )
+            enhanced_elements.append(enhanced_element)
         
-        return elements
+        return enhanced_elements
     
     def _calculate_text_prominence(self, text: str) -> float:
         """Calculate how prominent text suggests an element is"""
