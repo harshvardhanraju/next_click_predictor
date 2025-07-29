@@ -1,0 +1,24 @@
+# Minimal Dockerfile for Cloud Run fallback mode
+FROM python:3.11-slim
+
+# Set Cloud Run optimized environment variables
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PORT=8080 \
+    WORKERS=1
+
+# Set working directory
+WORKDIR /app
+
+# Copy requirements and install dependencies
+COPY requirements.simple.txt .
+RUN pip install --no-cache-dir -r requirements.simple.txt
+
+# Copy application code
+COPY cloudrun_app_simple.py .
+
+# Expose port for Cloud Run
+EXPOSE 8080
+
+# Simple startup command
+CMD exec gunicorn --bind :$PORT --workers $WORKERS --worker-class uvicorn.workers.UvicornWorker --access-logfile - --error-logfile - cloudrun_app_simple:app
