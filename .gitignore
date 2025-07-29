@@ -46,5 +46,8 @@ test_screenshot.png
 models/
 
 # Claude settings
-.claude/settings.local.jsongoogle-cloud-sdk/
+.claude/settings.local.json
+
+# Google Cloud SDK (large files)
+google-cloud-sdk/
 google-cloud-cli-*.tar.gz
