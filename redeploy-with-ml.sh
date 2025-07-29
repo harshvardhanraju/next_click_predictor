@@ -25,7 +25,7 @@ docker push ${IMAGE_NAME}
 
 # Deploy to Cloud Run
 echo "🚀 Deploying to Cloud Run..."
-gcloud run deploy ${SERVICE_NAME} \
+/home01/harshvardhan.raju/claude_work/google-cloud-sdk/bin/gcloud run deploy ${SERVICE_NAME} \
   --image ${IMAGE_NAME} \
   --platform managed \
   --region ${REGION} \
@@ -37,7 +37,7 @@ gcloud run deploy ${SERVICE_NAME} \
   --max-instances 10
 
 # Get service URL
-SERVICE_URL=$(gcloud run services describe ${SERVICE_NAME} --region=${REGION} --format="value(status.url)")
+SERVICE_URL=$(/home01/harshvardhan.raju/claude_work/google-cloud-sdk/bin/gcloud run services describe ${SERVICE_NAME} --region=${REGION} --format="value(status.url)")
 
 echo "✅ Deployment completed!"
 echo "🌐 Service URL: ${SERVICE_URL}"

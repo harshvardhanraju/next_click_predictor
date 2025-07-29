@@ -23,7 +23,16 @@
       "Bash(./pre-deployment-check.sh:*)",
       "WebFetch(domain:next-click-predictor-157954281090.asia-south1.run.app)",
       "Bash(npm run build:*)",
-      "Bash(./deploy-simple-cloudrun.sh:*)"
+      "Bash(./deploy-simple-cloudrun.sh:*)",
+      "Bash(gcloud run services list:*)",
+      "Bash(python test:*)",
+      "Bash(./redeploy-with-ml.sh:*)",
+      "Bash(tar:*)",
+      "Bash(source:*)",
+      "Bash(export PATH=\"$PATH:/home01/harshvardhan.raju/claude_work/google-cloud-sdk/bin\")",
+      "Bash(/home01/harshvardhan.raju/claude_work/google-cloud-sdk/bin/gcloud --version)",
+      "Bash(/home01/harshvardhan.raju/claude_work/google-cloud-sdk/bin/gcloud auth list)",
+      "Bash(/home01/harshvardhan.raju/claude_work/google-cloud-sdk/bin/gcloud config set project gen-lang-client-0569475118)"
     ],
     "deny": []
   }
