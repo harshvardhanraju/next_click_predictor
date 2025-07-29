@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Frontend Integration Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .success { background-color: #d4edda; border-color: #c3e6cb; }
+        .error { background-color: #f8d7da; border-color: #f5c2c7; }
+        .loading { background-color: #fff3cd; border-color: #ffeaa7; }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover { background: #0056b3; }
+        pre {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 5px;
+            overflow-x: auto;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        input[type="file"] {
+            margin: 10px 0;
+            padding: 5px;
+        }
+        .status {
+            font-weight: bold;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 Frontend Integration Test</h1>
+        <p>Test the backend API endpoints and fix "failed to fetch" errors</p>
+
+        <!-- Backend URL Configuration -->
+        <div class="test-section">
+            <h3>🔧 Backend Configuration</h3>
+            <label for="backendUrl">Backend URL:</label>
+            <input type="text" id="backendUrl" value="http://localhost:8080" style="width: 300px; padding: 5px;">
+            <button onclick="updateBackendUrl()">Update URL</button>
+            <div id="urlStatus" class="status"></div>
+        </div>
+
+        <!-- Test 1: Basic Health Check -->
+        <div class="test-section" id="healthTest">
+            <h3>🏥 Test 1: Health Check</h3>
+            <button onclick="testHealthCheck()">Test Health Endpoint</button>
+            <div class="status" id="healthStatus">Not tested</div>
+            <pre id="healthResult"></pre>
+        </div>
+
+        <!-- Test 2: Service Info -->
+        <div class="test-section" id="serviceTest">
+            <h3>ℹ️ Test 2: Service Info</h3>
+            <button onclick="testServiceInfo()">Test Service Info</button>
+            <div class="status" id="serviceStatus">Not tested</div>
+            <pre id="serviceResult"></pre>
+        </div>
+
+        <!-- Test 3: Metrics -->
+        <div class="test-section" id="metricsTest">
+            <h3>📊 Test 3: Metrics</h3>
+            <button onclick="testMetrics()">Test Metrics Endpoint</button>
+            <div class="status" id="metricsStatus">Not tested</div>
+            <pre id="metricsResult"></pre>
+        </div>
+
+        <!-- Test 4: Prediction with File Upload -->
+        <div class="test-section" id="predictionTest">
+            <h3>🎯 Test 4: Prediction</h3>
+            <input type="file" id="imageFile" accept="image/*">
+            <br>
+            <label for="taskDesc">Task Description:</label>
+            <input type="text" id="taskDesc" value="Login to the account" style="width: 300px; padding: 5px;">
+            <br>
+            <button onclick="testPrediction()">Test Prediction</button>
+            <div class="status" id="predictionStatus">Not tested</div>
+            <pre id="predictionResult"></pre>
+        </div>
+
+        <!-- Test 5: Screenshot Analysis -->
+        <div class="test-section" id="analysisTest">
+            <h3>🔍 Test 5: Screenshot Analysis</h3>
+            <input type="file" id="analysisFile" accept="image/*">
+            <br>
+            <button onclick="testAnalysis()">Test Analysis</button>
+            <div class="status" id="analysisStatus">Not tested</div>
+            <pre id="analysisResult"></pre>
+        </div>
+
+        <!-- Overall Results -->
+        <div class="test-section" id="overallResults">
+            <h3>📋 Overall Test Results</h3>
+            <div id="testSummary"></div>
+        </div>
+    </div>
+
+    <script>
+        let backendUrl = 'http://localhost:8080';
+        let testResults = {};
+
+        function updateBackendUrl() {
+            backendUrl = document.getElementById('backendUrl').value;
+            document.getElementById('urlStatus').textContent = `Backend URL updated to: ${backendUrl}`;
+            // Reset all test results when URL changes
+            testResults = {};
+            updateTestSummary();
+        }
+
+        async function makeRequest(endpoint, options = {}) {
+            try {
+                const url = `${backendUrl}${endpoint}`;
+                console.log(`Making request to: ${url}`);
+                
+                const response = await fetch(url, {
+                    ...options,
+                    headers: {
+                        ...options.headers,
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+
+                const contentType = response.headers.get('content-type');
+                if (contentType && contentType.includes('application/json')) {
+                    return await response.json();
+                } else {
+                    return await response.text();
+                }
+            } catch (error) {
+                console.error('Request failed:', error);
+                throw error;
+            }
+        }
+
+        async function testHealthCheck() {
+            const testId = 'health';
+            setTestStatus(testId, 'loading', 'Testing...');
+            
+            try {
+                const result = await makeRequest('/health');
+                setTestStatus(testId, 'success', '✅ Health check passed');
+                setTestResult(testId, JSON.stringify(result, null, 2));
+                testResults[testId] = true;
+            } catch (error) {
+                setTestStatus(testId, 'error', `❌ Health check failed: ${error.message}`);
+                setTestResult(testId, error.message);
+                testResults[testId] = false;
+            }
+            updateTestSummary();
+        }
+
+        async function testServiceInfo() {
+            const testId = 'service';
+            setTestStatus(testId, 'loading', 'Testing...');
+            
+            try {
+                const result = await makeRequest('/');
+                setTestStatus(testId, 'success', '✅ Service info retrieved');
+                setTestResult(testId, JSON.stringify(result, null, 2));
+                testResults[testId] = true;
+            } catch (error) {
+                setTestStatus(testId, 'error', `❌ Service info failed: ${error.message}`);
+                setTestResult(testId, error.message);
+                testResults[testId] = false;
+            }
+            updateTestSummary();
+        }
+
+        async function testMetrics() {
+            const testId = 'metrics';
+            setTestStatus(testId, 'loading', 'Testing...');
+            
+            try {
+                const result = await makeRequest('/metrics');
+                setTestStatus(testId, 'success', '✅ Metrics retrieved');
+                setTestResult(testId, JSON.stringify(result, null, 2));
+                testResults[testId] = true;
+            } catch (error) {
+                setTestStatus(testId, 'error', `❌ Metrics failed: ${error.message}`);
+                setTestResult(testId, error.message);
+                testResults[testId] = false;
+            }
+            updateTestSummary();
+        }
+
+        async function testPrediction() {
+            const testId = 'prediction';
+            const fileInput = document.getElementById('imageFile');
+            const taskDesc = document.getElementById('taskDesc').value;
+
+            if (!fileInput.files[0]) {
+                setTestStatus(testId, 'error', '❌ Please select an image file');
+                return;
+            }
+
+            setTestStatus(testId, 'loading', 'Testing prediction...');
+
+            try {
+                const formData = new FormData();
+                formData.append('file', fileInput.files[0]);
+                formData.append('user_attributes', JSON.stringify({
+                    tech_savviness: 'high',
+                    device_type: 'desktop',
+                    age_group: '25-34'
+                }));
+                formData.append('task_description', taskDesc);
+
+                const result = await makeRequest('/predict', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                setTestStatus(testId, 'success', '✅ Prediction successful');
+                setTestResult(testId, JSON.stringify(result, null, 2));
+                testResults[testId] = true;
+            } catch (error) {
+                setTestStatus(testId, 'error', `❌ Prediction failed: ${error.message}`);
+                setTestResult(testId, error.message);
+                testResults[testId] = false;
+            }
+            updateTestSummary();
+        }
+
+        async function testAnalysis() {
+            const testId = 'analysis';
+            const fileInput = document.getElementById('analysisFile');
+
+            if (!fileInput.files[0]) {
+                setTestStatus(testId, 'error', '❌ Please select an image file');
+                return;
+            }
+
+            setTestStatus(testId, 'loading', 'Testing analysis...');
+
+            try {
+                const formData = new FormData();
+                formData.append('file', fileInput.files[0]);
+
+                const result = await makeRequest('/analyze-screenshot', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                setTestStatus(testId, 'success', '✅ Analysis successful');
+                setTestResult(testId, JSON.stringify(result, null, 2));
+                testResults[testId] = true;
+            } catch (error) {
+                setTestStatus(testId, 'error', `❌ Analysis failed: ${error.message}`);
+                setTestResult(testId, error.message);
+                testResults[testId] = false;
+            }
+            updateTestSummary();
+        }
+
+        function setTestStatus(testId, type, message) {
+            const statusElement = document.getElementById(`${testId}Status`);
+            const testElement = document.getElementById(`${testId}Test`);
+            
+            statusElement.textContent = message;
+            
+            // Update test section styling
+            testElement.className = `test-section ${type}`;
+        }
+
+        function setTestResult(testId, result) {
+            document.getElementById(`${testId}Result`).textContent = result;
+        }
+
+        function updateTestSummary() {
+            const totalTests = Object.keys(testResults).length;
+            const passedTests = Object.values(testResults).filter(Boolean).length;
+            const failedTests = totalTests - passedTests;
+
+            const summary = `
+Tests Run: ${totalTests}
+✅ Passed: ${passedTests}
+❌ Failed: ${failedTests}
+${totalTests > 0 ? `Success Rate: ${((passedTests/totalTests) * 100).toFixed(1)}%` : 'No tests run yet'}
+            `;
+
+            document.getElementById('testSummary').textContent = summary;
+        }
+
+        // Create test image for demonstration
+        function createTestImage() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 400;
+            canvas.height = 300;
+            const ctx = canvas.getContext('2d');
+            
+            // Background
+            ctx.fillStyle = '#f0f0f0';
+            ctx.fillRect(0, 0, 400, 300);
+            
+            // Button
+            ctx.fillStyle = '#007bff';
+            ctx.fillRect(150, 120, 100, 40);
+            
+            // Button text
+            ctx.fillStyle = 'white';
+            ctx.font = '16px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('Sign In', 200, 145);
+            
+            return canvas;
+        }
+
+        // Initialize
+        updateTestSummary();
+        console.log('Frontend integration test loaded. Backend URL:', backendUrl);
+    </script>
+</body>
+</html>

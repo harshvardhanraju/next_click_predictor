@@ -1,0 +1,25 @@
+# Optimized ML Requirements for Cloud Run
+# Carefully selected versions for minimal size and fast loading
+
+# Core API Framework
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+gunicorn==21.2.0
+python-multipart==0.0.6
+
+# Essential ML Dependencies (optimized versions)
+opencv-python-headless==4.8.1.78  # Headless version (smaller)
+numpy==1.24.3
+pillow==10.1.0
+
+# Lightweight OCR (instead of heavy easyocr)
+pytesseract==0.3.10
+
+# Basic ML (lighter than scikit-learn full)
+scipy==1.11.4
+
+# Network processing (lighter than pgmpy)
+networkx==3.2.1
+
+# Additional utilities
+requests==2.31.0
