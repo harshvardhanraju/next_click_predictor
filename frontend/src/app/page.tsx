@@ -38,10 +38,17 @@ export default function Home() {
       console.log('🔗 API URL being used:', apiUrl);
       console.log('📤 Making request to:', `${apiUrl}/predict`);
       
+      // Set timeout for ML processing (2 minutes)
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 120000);
+      
       const response = await fetch(`${apiUrl}/predict`, {
         method: 'POST',
         body: formData,
+        signal: controller.signal,
       });
+      
+      clearTimeout(timeoutId);
 
       console.log('📊 Response status:', response.status);
       console.log('📊 Response headers:', Object.fromEntries(response.headers.entries()));
@@ -57,7 +64,11 @@ export default function Home() {
       setPredictionResult(result);
       setStep('results');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred');
+      if (err instanceof Error && err.name === 'AbortError') {
+        setError('Request timed out. The AI processing is taking longer than expected. Please try with a simpler image or check your connection.');
+      } else {
+        setError(err instanceof Error ? err.message : 'An error occurred');
+      }
     } finally {
       setLoading(false);
     }
@@ -113,7 +124,13 @@ export default function Home() {
             <div className="bg-white rounded-lg p-8 max-w-sm mx-4 text-center">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
               <p className="text-gray-700 font-medium">Analyzing screenshot...</p>
-              <p className="text-gray-500 text-sm mt-2">This may take 30-60 seconds</p>
+              <p className="text-gray-500 text-sm mt-2">
+                Advanced AI processing in progress...<br/>
+                Expected time: 5-15 seconds for simple images
+              </p>
+              <div className="mt-4 text-xs text-gray-400">
+                ✓ UI Detection → ✓ Feature Analysis → ✓ Bayesian Inference
+              </div>
             </div>
           </div>
         )}
