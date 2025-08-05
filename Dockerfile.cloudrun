@@ -50,7 +50,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PORT=8080 \
     WORKERS=1 \
-    WORKER_TIMEOUT=300 \
+    WORKER_TIMEOUT=120 \
     WORKER_CLASS=uvicorn.workers.UvicornWorker \
     MAX_WORKER_CONNECTIONS=1000 \
     MATPLOTLIB_CACHE_DIR=/tmp/matplotlib \
@@ -69,11 +69,18 @@ WORKDIR /app
 
 # Copy application code
 COPY cloudrun_app_optimized.py .
+COPY warm_up_models.py .
 COPY src/ ./src/
 
-# Change ownership to non-root user
+# Change ownership to non-root user  
 RUN chown -R cloudrun:cloudrun /app
 USER cloudrun
+
+# Pre-download models and warm up ML components during build
+# This prevents cold start delays and timeout issues
+RUN echo "🔥 Pre-warming ML models during Docker build..." && \
+    python warm_up_models.py && \
+    echo "✅ Model warm-up completed successfully!"
 
 # Expose port for Cloud Run
 EXPOSE 8080
