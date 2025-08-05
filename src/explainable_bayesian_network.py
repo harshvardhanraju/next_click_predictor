@@ -340,11 +340,19 @@ class SimpleBayesianNetwork:
         
         # Map user expertise
         tech_savviness = user_context.get('tech_savviness', 0.5)
-        evidence['user_expertise'] = 1 if tech_savviness > 0.6 else 0
+        try:
+            tech_savviness_float = float(tech_savviness) if tech_savviness is not None else 0.5
+        except (ValueError, TypeError):
+            tech_savviness_float = 0.5
+        evidence['user_expertise'] = 1 if tech_savviness_float > 0.6 else 0
         
         # Map user intent
         urgency = task_context.get('urgency_level', 0.5)
-        evidence['user_intent'] = 1 if urgency > 0.5 else 0
+        try:
+            urgency_float = float(urgency) if urgency is not None else 0.5
+        except (ValueError, TypeError):
+            urgency_float = 0.5
+        evidence['user_intent'] = 1 if urgency_float > 0.5 else 0
         
         # Map element type
         element_type = element_features.get('element_type', 'text')
@@ -353,15 +361,23 @@ class SimpleBayesianNetwork:
         
         # Map element prominence
         prominence = element_features.get('prominence', 0.5)
-        evidence['element_prominence'] = 1 if prominence > 0.5 else 0
+        try:
+            prominence_float = float(prominence) if prominence is not None else 0.5
+        except (ValueError, TypeError):
+            prominence_float = 0.5
+        evidence['element_prominence'] = 1 if prominence_float > 0.5 else 0
         
         # Map element position
         position_features = element_features.get('position_features', {})
         center_distance = position_features.get('center_distance', 0.5)
-        evidence['element_position'] = 1 if center_distance < 0.4 else 0  # central if close to center
+        try:
+            center_distance_float = float(center_distance) if center_distance is not None else 0.5
+        except (ValueError, TypeError):
+            center_distance_float = 0.5
+        evidence['element_position'] = 1 if center_distance_float < 0.4 else 0  # central if close to center
         
         # Map task urgency
-        evidence['task_urgency'] = 1 if urgency > 0.6 else 0
+        evidence['task_urgency'] = 1 if urgency_float > 0.6 else 0
         
         return evidence
     

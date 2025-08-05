@@ -414,12 +414,12 @@ def format_fallback_prediction_result(elements, best_element, task_description):
             "id": elem.get('id', 'unknown'),
             "type": elem.get('type', 'unknown'),
             "text": elem.get('text', ''),
-            "x": bbox[0],
-            "y": bbox[1],
-            "width": bbox[2] - bbox[0],
-            "height": bbox[3] - bbox[1],
+            "x": int(bbox[0]),
+            "y": int(bbox[1]),
+            "width": int(bbox[2]) - int(bbox[0]),
+            "height": int(bbox[3]) - int(bbox[1]),
             "bbox": bbox,
-            "center": elem.get('center', [bbox[0] + (bbox[2]-bbox[0])//2, bbox[1] + (bbox[3]-bbox[1])//2]),
+            "center": elem.get('center', [int(bbox[0]) + (int(bbox[2])-int(bbox[0]))//2, int(bbox[1]) + (int(bbox[3])-int(bbox[1]))//2]),
             "confidence": elem.get('prominence', 0.5),
             "prominence": elem.get('prominence', 0.5),
             "visibility": elem.get('visibility', True)
@@ -432,10 +432,10 @@ def format_fallback_prediction_result(elements, best_element, task_description):
         "element_type": best_element.get('type', 'button'),
         "element_text": best_element.get('text', 'Click Here'),
         "click_probability": best_element.get('prominence', 0.7),
-        "x": bbox[0],
-        "y": bbox[1],
-        "width": bbox[2] - bbox[0],
-        "height": bbox[3] - bbox[1],
+        "x": int(bbox[0]),
+        "y": int(bbox[1]),
+        "width": int(bbox[2]) - int(bbox[0]),
+        "height": int(bbox[3]) - int(bbox[1]),
         "confidence": best_element.get('prominence', 0.7)
     }
     
