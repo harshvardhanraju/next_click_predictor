@@ -58,10 +58,13 @@ def initialize_ml_components():
         from improved_next_click_predictor import ImprovedNextClickPredictor
         
         ml_predictor = ImprovedNextClickPredictor({
-            'log_level': 'INFO',
+            'log_level': 'WARNING',  # Reduce logging overhead
             'enable_evaluation': False,  # Disable for production
+            'max_elements_to_process': 30,  # Limit processing for complex images
+            'element_confidence_threshold': 0.4,  # Filter low-confidence elements
+            'processing_timeout_seconds': 90,  # Add timeout protection
             'ensemble_config': {
-                'ensemble_method': 'adaptive'
+                'ensemble_method': 'weighted_average'  # Faster than adaptive
             }
         })
         

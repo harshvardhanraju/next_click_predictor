@@ -143,9 +143,10 @@ class ImprovedNextClickPredictor:
         try:
             self.logger.info(f"Starting improved prediction for: {screenshot_path}")
             
-            # Step 1: Enhanced UI element detection
+            # Step 1: Enhanced UI element detection with limits
             self.logger.debug("Step 1: UI element detection")
-            ui_elements = self._detect_ui_elements(screenshot_path)
+            max_elements = self.config.get('max_elements_to_process', 50)
+            ui_elements = self._detect_ui_elements(screenshot_path, max_elements)
             
             if not ui_elements:
                 return self._handle_no_elements(screenshot_path, start_time)
@@ -155,8 +156,14 @@ class ImprovedNextClickPredictor:
             # Step 2: Clean feature integration with validation
             self.logger.debug("Step 2: Feature integration")
             element_predictions = []
+            processing_timeout = self.config.get('processing_timeout_seconds', 120)  # 2 minutes default
+            element_start_time = time.time()
             
-            for element in ui_elements:
+            for i, element in enumerate(ui_elements):
+                # Check timeout
+                if time.time() - element_start_time > processing_timeout:
+                    self.logger.warning(f"Processing timeout reached after {i} elements, stopping early")
+                    break
                 try:
                     # Convert DetectedElement to dictionary format
                     element_features = self._convert_detected_element(element)
@@ -270,7 +277,7 @@ class ImprovedNextClickPredictor:
             self.logger.error(f"Prediction pipeline failed: {e}")
             return self._create_error_result(str(e), start_time)
     
-    def _detect_ui_elements(self, screenshot_path: str) -> List[DetectedElement]:
+    def _detect_ui_elements(self, screenshot_path: str, max_elements: int = 50) -> List[DetectedElement]:
         """Detect UI elements using improved detector"""
         
         if not os.path.exists(screenshot_path):
@@ -284,8 +291,8 @@ class ImprovedNextClickPredictor:
             if image is None:
                 raise ValueError(f"Could not load image from {screenshot_path}")
             
-            # Run improved detection
-            elements = self.ui_detector.detect_elements(image)
+            # Run improved detection with element limit
+            elements = self.ui_detector.detect_elements(image, max_elements)
             
             self.logger.debug(f"UI detector found {len(elements)} elements")
             return elements

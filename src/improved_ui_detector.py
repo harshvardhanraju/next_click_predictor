@@ -73,31 +73,32 @@ class ImprovedUIDetector:
         # Initialize logging
         self.logger = logging.getLogger(__name__)
     
-    def detect_elements(self, image: np.ndarray) -> List[DetectedElement]:
+    def detect_elements(self, image: np.ndarray, max_elements: int = 50) -> List[DetectedElement]:
         """
         Main detection pipeline - simplified and focused
         
         Args:
             image: Input image as numpy array
+            max_elements: Maximum number of elements to return (for performance)
             
         Returns:
             List of detected UI elements with confidence scores
         """
         try:
             # Step 1: Detect visual elements using improved contour analysis
-            visual_elements = self._detect_visual_elements(image)
+            visual_elements = self._detect_visual_elements(image, max_elements * 2)
             self.logger.info(f"Detected {len(visual_elements)} visual elements")
             
-            # Step 2: Detect text elements using improved OCR
-            text_elements = self._detect_text_elements(image)
+            # Step 2: Detect text elements using improved OCR (limit for performance)
+            text_elements = self._detect_text_elements(image, max_elements)
             self.logger.info(f"Detected {len(text_elements)} text elements")
             
             # Step 3: Merge visual and text elements intelligently
             merged_elements = self._merge_elements(visual_elements, text_elements)
             self.logger.info(f"Merged into {len(merged_elements)} final elements")
             
-            # Step 4: Filter and rank by confidence
-            filtered_elements = self._filter_and_rank(merged_elements)
+            # Step 4: Filter and rank by confidence (enforce limit)
+            filtered_elements = self._filter_and_rank(merged_elements, max_elements)
             
             return filtered_elements
             
@@ -105,7 +106,7 @@ class ImprovedUIDetector:
             self.logger.error(f"Element detection failed: {e}")
             return []
     
-    def _detect_visual_elements(self, image: np.ndarray) -> List[DetectedElement]:
+    def _detect_visual_elements(self, image: np.ndarray, max_elements: int = 100) -> List[DetectedElement]:
         """Detect visual UI elements using improved contour analysis"""
         elements = []
         
@@ -122,7 +123,9 @@ class ImprovedUIDetector:
         # Remove duplicates based on overlap
         unique_elements = self._remove_duplicate_elements(elements)
         
-        return unique_elements
+        # Sort by confidence and limit results for performance
+        unique_elements.sort(key=lambda x: x.confidence, reverse=True)
+        return unique_elements[:max_elements]
     
     def _preprocess_for_detection(self, gray: np.ndarray) -> Dict[str, np.ndarray]:
         """Apply different preprocessing techniques for robust detection"""
@@ -271,7 +274,7 @@ class ImprovedUIDetector:
         final_confidence = base_confidence * method_multipliers.get(method, 0.7)
         return element_type, min(0.95, final_confidence)
     
-    def _detect_text_elements(self, image: np.ndarray) -> List[DetectedElement]:
+    def _detect_text_elements(self, image: np.ndarray, max_elements: int = 50) -> List[DetectedElement]:
         """Detect text elements using improved OCR integration"""
         if not self.ocr_reader:
             self.logger.warning("OCR not available, skipping text detection")
@@ -565,7 +568,7 @@ class ImprovedUIDetector:
         
         return unique_elements
     
-    def _filter_and_rank(self, elements: List[DetectedElement]) -> List[DetectedElement]:
+    def _filter_and_rank(self, elements: List[DetectedElement], max_elements: int = 50) -> List[DetectedElement]:
         """Filter low-quality elements and rank by confidence"""
         
         # Filter elements with minimum quality
@@ -591,5 +594,5 @@ class ImprovedUIDetector:
         # Sort by confidence (descending)
         filtered_elements.sort(key=lambda x: x.confidence, reverse=True)
         
-        # Limit to top 50 elements to prevent overload
-        return filtered_elements[:50]
+        # Limit to specified max elements to prevent overload
+        return filtered_elements[:max_elements]
