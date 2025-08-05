@@ -60,9 +60,9 @@ def initialize_ml_components():
         ml_predictor = ImprovedNextClickPredictor({
             'log_level': 'WARNING',  # Reduce logging overhead
             'enable_evaluation': False,  # Disable for production
-            'max_elements_to_process': 30,  # Limit processing for complex images
+            'max_elements_to_process': 15,  # Aggressive limit for complex images
             'element_confidence_threshold': 0.4,  # Filter low-confidence elements
-            'processing_timeout_seconds': 90,  # Add timeout protection
+            'processing_timeout_seconds': 60,  # Shorter timeout for Cloud Run
             'ensemble_config': {
                 'ensemble_method': 'weighted_average'  # Faster than adaptive
             }

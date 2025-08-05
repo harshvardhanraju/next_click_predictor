@@ -156,14 +156,17 @@ class ImprovedNextClickPredictor:
             # Step 2: Clean feature integration with validation
             self.logger.debug("Step 2: Feature integration")
             element_predictions = []
-            processing_timeout = self.config.get('processing_timeout_seconds', 120)  # 2 minutes default
+            processing_timeout = self.config.get('processing_timeout_seconds', 60)  # 1 minute default
             element_start_time = time.time()
             
             for i, element in enumerate(ui_elements):
-                # Check timeout
+                # Check timeout - return partial results if needed
                 if time.time() - element_start_time > processing_timeout:
-                    self.logger.warning(f"Processing timeout reached after {i} elements, stopping early")
-                    break
+                    self.logger.warning(f"Processing timeout reached after {i} elements, returning partial results")
+                    if element_predictions:  # If we have some predictions, return them
+                        break
+                    else:  # If no predictions yet, return best element so far
+                        return self._create_timeout_fallback_result(ui_elements[0], start_time, i)
                 try:
                     # Convert DetectedElement to dictionary format
                     element_features = self._convert_detected_element(element)
@@ -614,6 +617,39 @@ class ImprovedNextClickPredictor:
             prediction_quality={'error': 'system_error'},
             feature_quality={'error': 'system_error'},
             metadata={'error': error_message}
+        )
+    
+    def _create_timeout_fallback_result(self, best_element: DetectedElement, start_time: float, processed_count: int) -> ImprovedPredictionResult:
+        """Create fallback result when processing times out"""
+        
+        return ImprovedPredictionResult(
+            top_prediction={
+                'element_id': best_element.element_id,
+                'element_type': best_element.element_type,
+                'element_text': best_element.text,
+                'click_probability': 0.7,  # Reasonable default
+                'confidence': 0.6,  # Lower confidence due to timeout
+                'bbox': best_element.bbox,
+                'center': best_element.center
+            },
+            all_predictions=[{
+                'element_id': best_element.element_id,
+                'element_type': best_element.element_type,
+                'element_text': best_element.text,
+                'click_probability': 0.7,
+                'confidence': 0.6,
+                'bbox': best_element.bbox,
+                'center': best_element.center
+            }],
+            ui_elements_detected=processed_count,
+            processing_time=time.time() - start_time,
+            detection_method='timeout_fallback',
+            ensemble_prediction=None,
+            explanation={'timeout': f'Processing timed out after {processed_count} elements, returning best candidate'},
+            confidence_breakdown={'timeout_fallback': 0.6},
+            prediction_quality={'timeout': 'partial_processing'},
+            feature_quality={'timeout': 'incomplete'},
+            metadata={'timeout': True, 'processed_elements': processed_count}
         )
     
     def _create_metadata(self, screenshot_path: str, user_attributes: Dict[str, Any], 
