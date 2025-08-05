@@ -33,7 +33,8 @@
       "Bash(/home01/harshvardhan.raju/claude_work/google-cloud-sdk/bin/gcloud --version)",
       "Bash(/home01/harshvardhan.raju/claude_work/google-cloud-sdk/bin/gcloud auth list)",
       "Bash(/home01/harshvardhan.raju/claude_work/google-cloud-sdk/bin/gcloud config set project gen-lang-client-0569475118)",
-      "Bash(rm:*)"
+      "Bash(rm:*)",
+      "Bash(python -m pytest tests/ -v)"
     ],
     "deny": []
   }

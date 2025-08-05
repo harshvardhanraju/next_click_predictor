@@ -1,0 +1,169 @@
+{
+  "system_info": {
+    "version": "2.0.0-improved",
+    "config": {
+      "log_level": "INFO",
+      "enable_evaluation": true,
+      "ensemble_config": {
+        "ensemble_method": "adaptive"
+      }
+    },
+    "is_initialized": true
+  },
+  "performance_stats": {
+    "total_predictions": 4,
+    "successful_predictions": 4,
+    "avg_processing_time": 1.0551851987838745,
+    "avg_confidence": 0.2
+  },
+  "prediction_history": [
+    {
+      "top_prediction": {
+        "element_id": "visual_edges_3cc76bfb",
+        "element_type": "button",
+        "element_text": "",
+        "click_probability": 0.5,
+        "confidence": 0.2,
+        "bbox": [
+          298,
+          198,
+          503,
+          253
+        ],
+        "center": [
+          400,
+          225
+        ]
+      },
+      "processing_time": 1.5635485649108887,
+      "ui_elements_detected": 6,
+      "prediction_quality": {
+        "top_probability": 0.5,
+        "probability_spread": 0.0,
+        "avg_confidence": 0.19999999999999998,
+        "confident_predictions": 0,
+        "prediction_diversity": 0.6
+      },
+      "feature_quality": {
+        "avg_data_quality": 0.3,
+        "avg_completeness": 0.19999999999999998,
+        "valid_feature_ratio": 0.0,
+        "high_quality_features": 0
+      }
+    },
+    {
+      "top_prediction": {
+        "element_id": "visual_edges_531360fc",
+        "element_type": "button",
+        "element_text": "",
+        "click_probability": 0.5,
+        "confidence": 0.2,
+        "bbox": [
+          298,
+          198,
+          503,
+          253
+        ],
+        "center": [
+          400,
+          225
+        ]
+      },
+      "processing_time": 0.9130282402038574,
+      "ui_elements_detected": 6,
+      "prediction_quality": {
+        "top_probability": 0.5,
+        "probability_spread": 0.0,
+        "avg_confidence": 0.19999999999999998,
+        "confident_predictions": 0,
+        "prediction_diversity": 0.6
+      },
+      "feature_quality": {
+        "avg_data_quality": 0.3,
+        "avg_completeness": 0.19999999999999998,
+        "valid_feature_ratio": 0.0,
+        "high_quality_features": 0
+      }
+    },
+    {
+      "top_prediction": {
+        "element_id": "visual_edges_dd8cacbf",
+        "element_type": "button",
+        "element_text": "",
+        "click_probability": 0.5,
+        "confidence": 0.2,
+        "bbox": [
+          298,
+          198,
+          503,
+          253
+        ],
+        "center": [
+          400,
+          225
+        ]
+      },
+      "processing_time": 0.8738946914672852,
+      "ui_elements_detected": 6,
+      "prediction_quality": {
+        "top_probability": 0.5,
+        "probability_spread": 0.0,
+        "avg_confidence": 0.19999999999999998,
+        "confident_predictions": 0,
+        "prediction_diversity": 0.6
+      },
+      "feature_quality": {
+        "avg_data_quality": 0.3,
+        "avg_completeness": 0.19999999999999998,
+        "valid_feature_ratio": 0.0,
+        "high_quality_features": 0
+      }
+    },
+    {
+      "top_prediction": {
+        "element_id": "visual_edges_3a641c15",
+        "element_type": "button",
+        "element_text": "",
+        "click_probability": 0.5,
+        "confidence": 0.2,
+        "bbox": [
+          298,
+          198,
+          503,
+          253
+        ],
+        "center": [
+          400,
+          225
+        ]
+      },
+      "processing_time": 0.8702692985534668,
+      "ui_elements_detected": 6,
+      "prediction_quality": {
+        "top_probability": 0.5,
+        "probability_spread": 0.0,
+        "avg_confidence": 0.19999999999999998,
+        "confident_predictions": 0,
+        "prediction_diversity": 0.6
+      },
+      "feature_quality": {
+        "avg_data_quality": 0.3,
+        "avg_completeness": 0.19999999999999998,
+        "valid_feature_ratio": 0.0,
+        "high_quality_features": 0
+      }
+    }
+  ],
+  "system_stats": {
+    "total_predictions": 4,
+    "successful_predictions": 4,
+    "avg_processing_time": 1.0551851987838745,
+    "avg_confidence": 0.2,
+    "recent_analysis": {
+      "predictions_count": 4,
+      "avg_elements_detected": 6.0,
+      "avg_top_probability": 0.5,
+      "avg_processing_time": 1.0551851987838745
+    }
+  }
+}

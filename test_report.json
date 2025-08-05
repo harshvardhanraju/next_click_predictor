@@ -1,0 +1,94 @@
+{
+  "test_run": {
+    "timestamp": "2025-08-05T08:07:05.997107",
+    "total_modules": 5,
+    "python_version": "3.10.12 (main, Feb  4 2025, 14:57:36) [GCC 11.4.0]",
+    "platform": "linux"
+  },
+  "module_results": {
+    "screenshot_processor": {
+      "results": [
+        {
+          "test": "basic_functionality",
+          "status": "PASS",
+          "elements_found": 1,
+          "details": "Found 1 elements"
+        },
+        {
+          "test": "complex_ui_processing",
+          "status": "PASS",
+          "elements_found": 2,
+          "details": "Complex UI processed with 2 elements"
+        },
+        {
+          "test": "empty_image_handling",
+          "status": "PASS",
+          "elements_found": 0,
+          "details": "Empty image handled gracefully: 0 elements"
+        },
+        {
+          "test": "invalid_image_path",
+          "status": "PASS",
+          "details": "Correctly raised ValueError for invalid path"
+        }
+      ],
+      "errors": []
+    },
+    "feature_integrator": {
+      "results": [
+        {
+          "test": "basic_feature_integration",
+          "status": "PASS",
+          "details": "Successfully integrated features"
+        },
+        {
+          "test": "missing_user_attributes",
+          "status": "PASS",
+          "details": "Handled missing user attributes gracefully"
+        }
+      ],
+      "errors": []
+    },
+    "bayesian_network": {
+      "results": [
+        {
+          "test": "network_building",
+          "status": "PASS",
+          "details": "Successfully built Bayesian network"
+        }
+      ],
+      "errors": []
+    },
+    "explanation_generator": {
+      "results": [
+        {
+          "test": "basic_explanation_generation",
+          "status": "PASS",
+          "details": "Successfully generated explanation"
+        }
+      ],
+      "errors": []
+    },
+    "main_orchestrator": {
+      "results": [
+        {
+          "test": "basic_prediction_pipeline",
+          "status": "PASS",
+          "details": "Successfully ran prediction pipeline"
+        },
+        {
+          "test": "screenshot_analysis_only",
+          "status": "PASS",
+          "details": "Successfully analyzed screenshot: 1 elements"
+        }
+      ],
+      "errors": []
+    }
+  },
+  "summary": {
+    "total_tests": 10,
+    "passed_tests": 10,
+    "failed_tests": 0,
+    "success_rate": 100.0
+  }
+}
