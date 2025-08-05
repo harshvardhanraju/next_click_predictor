@@ -1,5 +1,5 @@
 import numpy as np
-from typing import Dict, List, Any, Tuple, Optional
+from typing import Dict, List, Any, Tuple, Optional, Union
 from dataclasses import dataclass
 import logging
 
@@ -218,49 +218,90 @@ class CleanFeatureIntegrator:
             self.logger.error(f"Feature integration failed: {e}")
             return self._create_fallback_features(element_features.get('id', 'unknown'))
     
-    def _validate_range(self, value: float, feature_name: str) -> float:
+    def _validate_range(self, value: Any, feature_name: str) -> float:
         """Validate that a feature value is within expected range"""
-        if feature_name not in self.feature_ranges:
-            return max(0.0, min(1.0, float(value)))  # Default range [0, 1]
-        
-        min_val, max_val = self.feature_ranges[feature_name]
-        validated_value = max(min_val, min(max_val, float(value)))
-        
-        if abs(validated_value - value) > 0.001:  # Log if clamping occurred
-            self.logger.debug(f"Clamped {feature_name} from {value} to {validated_value}")
-        
-        return validated_value
+        try:
+            # Handle None values
+            if value is None:
+                return 0.5  # Default neutral value
+            
+            # Convert to float, handling various input types
+            if isinstance(value, str):
+                # Try to parse string as number
+                try:
+                    numeric_value = float(value)
+                except ValueError:
+                    # If string is not numeric, return default
+                    self.logger.debug(f"Non-numeric string for {feature_name}: {value}")
+                    return 0.5
+            else:
+                numeric_value = float(value)
+            
+            if feature_name not in self.feature_ranges:
+                return max(0.0, min(1.0, numeric_value))  # Default range [0, 1]
+            
+            min_val, max_val = self.feature_ranges[feature_name]
+            validated_value = max(min_val, min(max_val, numeric_value))
+            
+            if abs(validated_value - numeric_value) > 0.001:  # Log if clamping occurred
+                self.logger.debug(f"Clamped {feature_name} from {numeric_value} to {validated_value}")
+            
+            return validated_value
+            
+        except (TypeError, ValueError, OverflowError) as e:
+            self.logger.debug(f"Value validation error for {feature_name}: {e}")
+            return 0.5  # Safe default
     
-    def _normalize_area(self, size: List[int]) -> float:
+    def _normalize_area(self, size: Union[List[int], List[float], Any]) -> float:
         """Normalize element area to [0, 1] range"""
-        if len(size) < 2:
+        try:
+            if not size or len(size) < 2:
+                return 0.1  # Small default area
+            
+            # Ensure we have numeric values
+            width = float(size[0]) if size[0] is not None else 100
+            height = float(size[1]) if size[1] is not None else 30
+            
+            area = width * height
+            
+            # Normalize using log scale (handles wide range of areas better)
+            # Typical UI elements range from 100 to 100,000 pixels²
+            min_area = 100
+            max_area = 100000
+            
+            if area <= min_area:
+                return 0.0
+            elif area >= max_area:
+                return 1.0
+            else:
+                # Log-scale normalization
+                log_area = np.log(area)
+                log_min = np.log(min_area)
+                log_max = np.log(max_area)
+                return (log_area - log_min) / (log_max - log_min)
+                
+        except (TypeError, ValueError, AttributeError) as e:
+            self.logger.debug(f"Area normalization error: {e}")
             return 0.1  # Small default area
-        
-        area = size[0] * size[1]
-        
-        # Normalize using log scale (handles wide range of areas better)
-        # Typical UI elements range from 100 to 100,000 pixels²
-        min_area = 100
-        max_area = 100000
-        
-        if area <= min_area:
-            return 0.0
-        elif area >= max_area:
-            return 1.0
-        else:
-            # Log-scale normalization
-            log_area = np.log(area)
-            log_min = np.log(min_area)
-            log_max = np.log(max_area)
-            return (log_area - log_min) / (log_max - log_min)
     
-    def _calculate_aspect_ratio(self, size: List[int]) -> float:
+    def _calculate_aspect_ratio(self, size: Union[List[int], List[float], Any]) -> float:
         """Calculate and validate aspect ratio"""
-        if len(size) < 2 or size[1] == 0:
+        try:
+            if not size or len(size) < 2:
+                return 1.0  # Square default
+            
+            width = float(size[0]) if size[0] is not None else 100
+            height = float(size[1]) if size[1] is not None else 100
+            
+            if height == 0:
+                return 1.0  # Square default
+            
+            ratio = width / height
+            return self._validate_range(ratio, 'aspect_ratio')
+            
+        except (TypeError, ValueError, ZeroDivisionError) as e:
+            self.logger.debug(f"Aspect ratio calculation error: {e}")
             return 1.0  # Square default
-        
-        ratio = size[0] / size[1]
-        return self._validate_range(ratio, 'aspect_ratio')
     
     def _normalize_text_length(self, text: str) -> float:
         """Normalize text length to [0, 1] range"""

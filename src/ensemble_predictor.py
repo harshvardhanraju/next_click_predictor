@@ -272,13 +272,18 @@ class EnsemblePredictor:
         
         # Adjust based on text presence (GB is better with text features)
         text = element_features.get('text', '')
-        if len(text) > 5:  # Has meaningful text
+        text_str = str(text) if text is not None else ''
+        if len(text_str) > 5:  # Has meaningful text
             adaptive_weights['gradient_boosting'] = min(0.8, adaptive_weights['gradient_boosting'] + 0.1)
             adaptive_weights['bayesian'] = 1.0 - adaptive_weights['gradient_boosting']
         
         # Adjust based on prominence (Bayesian reasoning about visual attention)
         prominence = element_features.get('prominence', 0.5)
-        if prominence > 0.7:  # High prominence
+        try:
+            prominence_float = float(prominence) if prominence is not None else 0.5
+        except (ValueError, TypeError):
+            prominence_float = 0.5
+        if prominence_float > 0.7:  # High prominence
             adaptive_weights['bayesian'] = min(0.7, adaptive_weights['bayesian'] + 0.1)
             adaptive_weights['gradient_boosting'] = 1.0 - adaptive_weights['bayesian']
         

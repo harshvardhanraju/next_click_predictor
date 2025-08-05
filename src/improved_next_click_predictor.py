@@ -307,10 +307,10 @@ class ImprovedNextClickPredictor:
             'prominence': element.confidence,  # Use detection confidence as prominence
             'confidence': element.confidence,
             'position_features': {
-                'relative_x': element.center[0] / 1920 if element.center[0] < 5000 else 0.5,  # Rough normalization
-                'relative_y': element.center[1] / 1080 if element.center[1] < 5000 else 0.5,
+                'relative_x': float(element.center[0]) / 1920.0 if element.center[0] < 5000 else 0.5,  # Rough normalization
+                'relative_y': float(element.center[1]) / 1080.0 if element.center[1] < 5000 else 0.5,
                 'center_distance': min(1.0, 
-                    ((element.center[0] - 960)**2 + (element.center[1] - 540)**2)**0.5 / 1000)
+                    ((float(element.center[0]) - 960.0)**2 + (float(element.center[1]) - 540.0)**2)**0.5 / 1000.0)
             },
             'color_features': element.visual_features.get('color_features', {}),
             'visual_features': element.visual_features
