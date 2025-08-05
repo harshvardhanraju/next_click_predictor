@@ -49,7 +49,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PORT=8080 \
-    WORKERS=1
+    WORKERS=1 \
+    WORKER_TIMEOUT=300 \
+    WORKER_CLASS=uvicorn.workers.UvicornWorker \
+    MAX_WORKER_CONNECTIONS=1000 \
+    MATPLOTLIB_CACHE_DIR=/tmp/matplotlib \
+    MPLCONFIGDIR=/tmp/matplotlib
 
 # Create non-root user for security
 RUN groupadd --gid 65532 cloudrun && \
@@ -77,5 +82,5 @@ EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
     CMD python -c "import requests; requests.get('http://localhost:8080/health')" || exit 1
 
-# Cloud Run optimized startup command
-CMD exec gunicorn --bind :$PORT --workers $WORKERS --worker-class uvicorn.workers.UvicornWorker --access-logfile - --error-logfile - cloudrun_app_optimized:app
+# Cloud Run optimized startup command with increased timeout
+CMD exec gunicorn --bind :$PORT --workers $WORKERS --worker-class $WORKER_CLASS --worker-connections $MAX_WORKER_CONNECTIONS --timeout $WORKER_TIMEOUT --access-logfile - --error-logfile - --preload cloudrun_app_optimized:app

@@ -49,11 +49,11 @@ ml_predictor = None
 ml_available = False
 
 def initialize_ml_components():
-    """Initialize improved ML components with error handling"""
+    """Initialize improved ML components with lazy loading for Cloud Run"""
     global ml_predictor, ml_available
     
     try:
-        # Try to import and initialize improved ML components
+        # Just import and create predictor without full initialization
         from improved_next_click_predictor import ImprovedNextClickPredictor
         
         ml_predictor = ImprovedNextClickPredictor({
@@ -61,27 +61,45 @@ def initialize_ml_components():
             'enable_evaluation': False,  # Disable for production
             'ensemble_config': {
                 'ensemble_method': 'adaptive'
-            }
+            },
+            'lazy_init': True  # Enable lazy initialization
         })
         
-        # Initialize the improved system
-        success = ml_predictor.initialize()
+        # Don't initialize here - do it on first request to avoid timeout
+        ml_available = True
+        logger.info("✅ ML predictor created with lazy initialization")
+        return True
         
-        if success:
-            ml_available = True
-            logger.info("✅ Improved ML system v2.5 initialized successfully")
-        else:
-            logger.warning("⚠️ Improved ML system initialization failed, using fallback")
-            ml_available = False
-            
-        return success
     except Exception as e:
         logger.warning(f"⚠️ Improved ML components not available: {e}")
         logger.info("📦 Using basic fallback mode")
         ml_available = False
         return False
 
-# Initialize ML on startup
+def ensure_ml_initialized():
+    """Ensure ML system is initialized on first use"""
+    global ml_predictor
+    
+    if ml_available and ml_predictor and not getattr(ml_predictor, '_initialized', False):
+        try:
+            logger.info("🔄 Initializing ML system on first use...")
+            success = ml_predictor.initialize()
+            ml_predictor._initialized = True
+            
+            if not success:
+                logger.warning("⚠️ ML initialization failed, using fallback")
+                return False
+            
+            logger.info("✅ ML system initialized successfully")
+            return True
+        except Exception as e:
+            logger.error(f"❌ ML initialization error: {e}")
+            ml_predictor._initialized = False
+            return False
+    
+    return ml_available and getattr(ml_predictor, '_initialized', False)
+
+# Create ML predictor without full initialization to avoid startup timeout
 initialize_ml_components()
 
 @app.on_event("startup")
@@ -163,7 +181,7 @@ async def predict_next_click(
         logger.info(f"🔍 Processing prediction: {file.filename} ({file_size} bytes)")
         
         # Generate prediction using improved system
-        if ml_available and ml_predictor:
+        if ml_available and ml_predictor and ensure_ml_initialized():
             prediction_result = await improved_ml_prediction(
                 file_content, file.filename, user_attrs, task_description
             )
@@ -207,7 +225,7 @@ async def analyze_screenshot_only(
         
         file_content = await file.read()
         
-        if ml_available and ml_predictor:
+        if ml_available and ml_predictor and ensure_ml_initialized():
             analysis_result = await analyze_with_improved_ml(file_content)
         else:
             analysis_result = await analyze_with_fallback(file_content)
