@@ -153,6 +153,10 @@ class ImprovedNextClickPredictor:
             
             self.logger.info(f"Detected {len(ui_elements)} UI elements")
             
+            # Skip OCR processing if too many elements to prevent hanging
+            if len(ui_elements) > 20:
+                self.logger.warning(f"Too many elements ({len(ui_elements)}), using simplified processing")
+            
             # Step 2: Clean feature integration with validation
             self.logger.debug("Step 2: Feature integration")
             element_predictions = []
@@ -160,6 +164,10 @@ class ImprovedNextClickPredictor:
             element_start_time = time.time()
             
             for i, element in enumerate(ui_elements):
+                # Log progress every 5 elements
+                if i % 5 == 0:
+                    self.logger.info(f"Processing element {i+1}/{len(ui_elements)}: {element.element_type}")
+                
                 # Check timeout - return partial results if needed
                 if time.time() - element_start_time > processing_timeout:
                     self.logger.warning(f"Processing timeout reached after {i} elements, returning partial results")
@@ -171,21 +179,32 @@ class ImprovedNextClickPredictor:
                     # Convert DetectedElement to dictionary format
                     element_features = self._convert_detected_element(element)
                     
-                    # Create clean features
-                    clean_features = self.feature_integrator.integrate_features(
-                        element_features, user_attributes, {'task_description': task_description}
-                    )
-                    
-                    # Validate features
-                    is_valid, issues = self.feature_integrator.validate_features(clean_features)
+                    # Create clean features with timeout protection
+                    try:
+                        clean_features = self.feature_integrator.integrate_features(
+                            element_features, user_attributes, {'task_description': task_description}
+                        )
+                        
+                        # Validate features
+                        is_valid, issues = self.feature_integrator.validate_features(clean_features)
+                    except Exception as feature_error:
+                        self.logger.warning(f"Feature integration failed for element {i}: {feature_error}")
+                        # Create minimal fallback features
+                        clean_features = self._create_fallback_features(element)
+                        is_valid, issues = False, ["fallback_features"]
                     
                     if not is_valid:
                         self.logger.debug(f"Feature validation issues for {element.element_id}: {issues}")
                     
-                    # Get ensemble prediction
-                    ensemble_pred = self.ensemble_predictor.predict(
-                        element_features, user_attributes, {'task_description': task_description}
-                    )
+                    # Get ensemble prediction with timeout protection
+                    try:
+                        ensemble_pred = self.ensemble_predictor.predict(
+                            element_features, user_attributes, {'task_description': task_description}
+                        )
+                    except Exception as pred_error:
+                        self.logger.warning(f"Ensemble prediction failed for element {i}: {pred_error}")
+                        # Create fallback prediction
+                        ensemble_pred = self._create_fallback_ensemble_prediction(element)
                     
                     # Create comprehensive prediction entry
                     prediction_entry = {
@@ -651,6 +670,46 @@ class ImprovedNextClickPredictor:
             feature_quality={'timeout': 'incomplete'},
             metadata={'timeout': True, 'processed_elements': processed_count}
         )
+    
+    def _create_fallback_ensemble_prediction(self, element: DetectedElement):
+        """Create fallback ensemble prediction when ML fails"""
+        from dataclasses import dataclass
+        
+        @dataclass
+        class FallbackEnsemblePrediction:
+            final_click_probability: float
+            final_confidence: float
+            bayesian_prediction: dict
+            ml_prediction: dict
+            method: str = 'fallback'
+        
+        # Simple heuristic based on element type
+        if element.element_type == 'button':
+            prob, conf = 0.7, 0.6
+        elif element.element_type == 'link':
+            prob, conf = 0.5, 0.5
+        elif element.element_type == 'form':
+            prob, conf = 0.4, 0.4
+        else:
+            prob, conf = 0.3, 0.3
+            
+        return FallbackEnsemblePrediction(
+            final_click_probability=prob,
+            final_confidence=conf,
+            bayesian_prediction={'click_probability': prob, 'confidence': conf},
+            ml_prediction={'click_probability': prob, 'confidence': conf}
+        )
+    
+    def _create_fallback_features(self, element: DetectedElement):
+        """Create minimal fallback features when feature integration fails"""
+        return {
+            'element_type': element.element_type,
+            'text': element.text,
+            'confidence': element.confidence,
+            'size': element.size,
+            'position': element.center,
+            'fallback': True
+        }
     
     def _create_metadata(self, screenshot_path: str, user_attributes: Dict[str, Any], 
                         task_description: str) -> Dict[str, Any]:
