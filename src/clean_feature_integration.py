@@ -133,11 +133,17 @@ class CleanFeatureIntegrator:
             CleanFeatures object with validated and normalized features
         """
         try:
-            # Extract and validate core element features
-            element_id = element_features.get('id', 'unknown')
-            element_type = element_features.get('element_type', 'unknown')
-            prominence = self._validate_range(element_features.get('prominence', 0.5), 'prominence')
-            confidence = self._validate_range(element_features.get('confidence', 0.5), 'confidence')
+            # Extract and validate core element features with safe defaults
+            element_id = str(element_features.get('id', 'unknown'))
+            element_type = str(element_features.get('element_type', 'unknown'))
+            
+            # Safe prominence extraction
+            prominence_raw = element_features.get('prominence', 0.5)
+            prominence = self._validate_range(prominence_raw, 'prominence')
+            
+            # Safe confidence extraction  
+            confidence_raw = element_features.get('confidence', 0.5)
+            confidence = self._validate_range(confidence_raw, 'confidence')
             
             # Extract and validate position features
             position_features = element_features.get('position_features', {})

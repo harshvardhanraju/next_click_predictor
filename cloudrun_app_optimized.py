@@ -55,26 +55,21 @@ def initialize_ml_components():
     try:
         # Import and initialize improved ML components
         # Models are already pre-downloaded and warmed up during Docker build
-        from improved_next_click_predictor import ImprovedNextClickPredictor
+        from production_optimized_predictor import ProductionOptimizedPredictor
         
-        ml_predictor = ImprovedNextClickPredictor({
-            'log_level': 'INFO',  # Keep info for debugging
-            'enable_evaluation': False,  # Disable for production
-            'max_elements_to_process': 10,  # Ultra-aggressive limit 
-            'element_confidence_threshold': 0.5,  # Higher threshold
-            'processing_timeout_seconds': 45,  # Even shorter timeout
-            'skip_complex_processing': True,  # Skip OCR for complex images
-            'ensemble_config': {
-                'ensemble_method': 'weighted_average'  # Faster than adaptive
-            }
+        ml_predictor = ProductionOptimizedPredictor({
+            'max_elements': 5,  # Process only top 5 elements
+            'timeout_seconds': 30,  # Hard timeout
+            'min_area': 400,
+            'max_area': 50000,
         })
         
-        # Initialize the system (should be fast since models are pre-warmed)
-        success = ml_predictor.initialize()
+        # No initialization needed for ultra-fast predictor
+        success = True
         
         if success:
             ml_available = True
-            logger.info("✅ Improved ML system v2.5 initialized with pre-warmed models")
+            logger.info("✅ Ultra-fast predictor v2.6 initialized")
         else:
             logger.warning("⚠️ Improved ML system initialization failed, using fallback")
             ml_available = False
@@ -284,18 +279,17 @@ async def improved_ml_prediction(
         temp_path = temp_file.name
     
     try:
-        logger.info("🤖 Running improved ML prediction v2.5...")
+        logger.info("🏃 Running ultra-fast prediction v2.6...")
         
         # Use the improved prediction system
         result = ml_predictor.predict_next_click(
             screenshot_path=temp_path,
             user_attributes=user_attrs,
-            task_description=task_description,
-            return_detailed=True
+            task_description=task_description
         )
         
         # Format result for API response
-        return format_improved_prediction_result(result, task_description)
+        return format_ultra_fast_prediction_result(result, task_description)
         
     finally:
         if os.path.exists(temp_path):
@@ -339,6 +333,55 @@ async def smart_fallback_prediction(
         logger.error(f"Fallback prediction error: {e}")
         # Ultimate fallback
         return generate_safe_prediction(task_description, file_hash)
+
+def format_ultra_fast_prediction_result(result, task_description):
+    """Format the ultra-fast prediction result for API response"""
+    
+    # Create formatted element
+    formatted_element = {
+        "id": result.element_id,
+        "type": result.element_type,
+        "text": result.element_text,
+        "x": result.bbox[0],
+        "y": result.bbox[1],
+        "width": result.bbox[2] - result.bbox[0],
+        "height": result.bbox[3] - result.bbox[1],
+        "bbox": result.bbox,
+        "center": result.center,
+        "confidence": result.confidence,
+        "prominence": result.click_probability,
+        "visibility": True,
+        "rank": 1
+    }
+    
+    # Format main prediction
+    prediction = {
+        "element_id": result.element_id,
+        "element_type": result.element_type,
+        "element_text": result.element_text,
+        "click_probability": result.click_probability,
+        "x": result.bbox[0],
+        "y": result.bbox[1],
+        "width": result.bbox[2] - result.bbox[0],
+        "height": result.bbox[3] - result.bbox[1],
+        "confidence": result.confidence
+    }
+    
+    return {
+        "elements": [formatted_element],
+        "prediction": prediction,
+        "confidence_score": result.confidence,
+        "explanation": f"Ultra-fast prediction for: {task_description[:50]}...",
+        "ml_metadata": {
+            "total_elements": 1,
+            "processing_method": "ultra_fast_v2.6",
+            "processing_time": result.processing_time,
+            "method": result.method,
+            "speed_optimized": True,
+            "max_elements_processed": 5,
+            "timeout_protection": True
+        }
+    }
 
 def format_improved_prediction_result(result, task_description):
     """Format the improved prediction result for API response"""

@@ -90,7 +90,8 @@ class ImprovedUIDetector:
             self.logger.info(f"Detected {len(visual_elements)} visual elements")
             
             # Step 2: Detect text elements using improved OCR (limit for performance)
-            text_elements = self._detect_text_elements(image, max_elements)
+            skip_ocr = max_elements <= 15  # Skip OCR for complex images
+            text_elements = self._detect_text_elements(image, max_elements, skip_ocr)
             self.logger.info(f"Detected {len(text_elements)} text elements")
             
             # Step 3: Merge visual and text elements intelligently
@@ -274,15 +275,31 @@ class ImprovedUIDetector:
         final_confidence = base_confidence * method_multipliers.get(method, 0.7)
         return element_type, min(0.95, final_confidence)
     
-    def _detect_text_elements(self, image: np.ndarray, max_elements: int = 50) -> List[DetectedElement]:
+    def _detect_text_elements(self, image: np.ndarray, max_elements: int = 50, skip_ocr: bool = False) -> List[DetectedElement]:
         """Detect text elements using improved OCR integration"""
-        if not self.ocr_reader:
-            self.logger.warning("OCR not available, skipping text detection")
+        if not self.ocr_reader or skip_ocr:
+            if skip_ocr:
+                self.logger.info("OCR disabled for production speed")
+            else:
+                self.logger.warning("OCR not available, skipping text detection")
             return []
         
         try:
-            # Run OCR with detailed output
-            ocr_results = self.ocr_reader.readtext(image, detail=1)
+            # Run OCR with timeout protection and limited processing
+            import signal
+            
+            def timeout_handler(signum, frame):
+                raise TimeoutError("OCR processing timed out")
+            
+            # Set timeout for OCR processing (15 seconds max)
+            signal.signal(signal.SIGALRM, timeout_handler)
+            signal.alarm(15)
+            
+            try:
+                # Run OCR with detailed output
+                ocr_results = self.ocr_reader.readtext(image, detail=1, width_ths=0.7, height_ths=0.7)
+            finally:
+                signal.alarm(0)  # Cancel timeout
             
             # Convert OCR results to text elements
             text_elements = []
